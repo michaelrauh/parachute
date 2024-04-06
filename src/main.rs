@@ -1,22 +1,27 @@
-use clap::{command, Parser};
+use clap::{command, Parser, ValueEnum};
+use parachute::add;
 
-/// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Name of the person to greet
-    #[arg(short, long)]
-    name: String,
+    #[arg(short, long,)]
+    local: bool,
 
-    /// Number of times to greet
-    #[arg(short, long, default_value_t = 1)]
-    count: u8,
+    #[arg(short, long, value_name = "FILENAME")]
+    add: Option<String>,
+
+    #[arg(short, long, conflicts_with = "add")]
+    mode: Option<AgentMode>,
+}
+
+#[derive(Parser, Debug, Clone, ValueEnum)]
+enum AgentMode {
+    Single, Merge
 }
 
 fn main() {
     let args = Args::parse();
 
-    for _ in 0..args.count {
-        println!("Hello {}!", args.name)
-    }
+    dbg!(args.local);
+    // add(args.add, args.local)
 }
