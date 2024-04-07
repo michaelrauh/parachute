@@ -4,7 +4,7 @@ use parachute::add;
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
 struct Args {
-    #[arg(short, long, value_name = "S3 PATH")]
+    #[arg(short, long, value_name = "S3 PATH",)]
     location: String,
 
     #[arg(short, long)]
@@ -25,6 +25,7 @@ enum AgentMode {
 fn main() {
     let args = Args::parse();
 
-    // dbg!(args.local);
-    // add(args.add, args.local)
+    if args.add.is_some() {
+        add(args.add.unwrap(), args.endpoint, args.location)
+    }
 }
