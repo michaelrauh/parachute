@@ -7,6 +7,9 @@ struct Args {
     #[arg(short, long, value_name = "S3 PATH")]
     location: String,
 
+    #[arg(short, long)]
+    endpoint: String,
+
     #[arg(short, long, value_name = "FILENAME",)]
     add: Option<String>,
 
