@@ -19,3 +19,4 @@ Cargo.lock
 /target
 .minio.sys
 princess.txt
+database

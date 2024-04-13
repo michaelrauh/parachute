@@ -1,5 +1,5 @@
 use clap::{command, Parser, ValueEnum};
-use parachute::add;
+use parachute::{add, process};
 
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
@@ -28,5 +28,7 @@ fn main() {
 
     if args.add.is_some() {
         add(args.add.unwrap(), args.endpoint, args.location)
+    } else {
+        process(args.endpoint, args.location);
     }
 }

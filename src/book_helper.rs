@@ -1,5 +1,5 @@
 pub mod book_helper {
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
 
     pub fn book_from_text(file_name: &String, chunk: &str, chunk_number: usize) -> Book {
         let name = calculate_name(file_name, chunk_number);
@@ -35,11 +35,11 @@ pub mod book_helper {
         name.to_string() + "-" + &chunk_number.to_string() + "." + extension
     }
 
-    #[derive(Serialize, PartialEq, Debug)]
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
     pub struct Book {
         pub name: String,
         pub provenance: Vec<String>,
-        pub pairs: Vec<(String, String)>,
+        pub pairs: Vec<(String, String)>, // todo dedup pairs. Consider keeping them in a set
     }
 
     pub fn split_book_to_sentences(book: String) -> Vec<Vec<String>> {
