@@ -14,7 +14,7 @@ struct Args {
     add: Option<String>,
 
     #[arg(short, long, conflicts_with = "add")]
-    mode: Option<AgentMode>,
+    mode: Option<AgentMode>, // todo remove agent mode. Do single if there are chunks and multiple if not
 }
 
 #[derive(Parser, Debug, Clone, ValueEnum)]
