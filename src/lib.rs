@@ -1,53 +1,33 @@
-use std::path::Path;
+use std::fs::read_to_string;
 
-use aws_sdk_s3::{primitives::ByteStream, Client};
+use book_helper::book_helper::book_from_text;
+use file_helper::file_helper::read_file;
+use s3_helper::s3_helper::{bucket_does_not_exist, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk};
+mod s3_helper;
+mod book_helper;
+mod file_helper;
 
+// todo split this file out
 #[::tokio::main]
 pub async fn add(file_name: String, endpoint: String, location: String) {
     let config = aws_config::from_env().endpoint_url(endpoint).load().await;
     let client = aws_sdk_s3::Client::new(&config);
+    let text = read_to_string(&file_name).unwrap();
 
-    if bucket_does_not_exist(&client, &location).await
-    {
+    if bucket_does_not_exist(&client, &location).await {
         create_bucket(&client, &location).await;
     }
 
     let body = read_file(&file_name).await;
     save_to_bucket_top_level(&client, &location, &file_name, body).await;
+
+    let chunks: Vec<_> = text.split("CHAPTER").collect(); // todo: pass in pattern from command line
+    let mut chunk_number = 0;
+    for chunk_text in chunks {
+        chunk_number += 1;
+        let book_chunk = book_from_text(&file_name, chunk_text, chunk_number);
+        write_chunk(&client, &location, book_chunk).await;
+    }
+    delete_from_bucket_top_level(&client, &location, &file_name).await;
 }
 
-async fn save_to_bucket_top_level(client: &Client, location: &String, file_name: &String, body: ByteStream) {
-    client
-        .put_object()
-        .bucket(location)
-        .key(file_name)
-        .body(body)
-        .send()
-        .await
-        .unwrap();
-}
-
-async fn read_file(file_name: &String) -> ByteStream {
-    ByteStream::from_path(Path::new(&file_name)).await.unwrap()
-}
-
-async fn create_bucket(client: &Client, location: &String) {
-    client
-            .create_bucket()
-            .bucket(location)
-            .send()
-            .await
-            .unwrap();
-}
-
-async fn bucket_does_not_exist(client: &Client, location: &String) -> bool {
-    !client
-        .list_buckets()
-        .send()
-        .await
-        .unwrap()
-        .buckets()
-        .to_vec()
-        .iter()
-        .any(|b| b.name().unwrap_or_default() == location)
-}
