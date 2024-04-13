@@ -2,12 +2,14 @@ use std::fs::read_to_string;
 
 use book_helper::book_helper::book_from_text;
 use file_helper::file_helper::read_file;
-use s3_helper::s3_helper::{bucket_does_not_exist, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk};
-mod s3_helper;
+use s3_helper::s3_helper::{
+    bucket_does_not_exist, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level,
+    write_chunk,
+};
 mod book_helper;
 mod file_helper;
+mod s3_helper;
 
-// todo split this file out
 #[::tokio::main]
 pub async fn add(file_name: String, endpoint: String, location: String) {
     let config = aws_config::from_env().endpoint_url(endpoint).load().await;
@@ -30,4 +32,3 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
     }
     delete_from_bucket_top_level(&client, &location, &file_name).await;
 }
-

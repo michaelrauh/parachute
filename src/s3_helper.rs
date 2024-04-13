@@ -1,10 +1,13 @@
-
 pub mod s3_helper {
     use aws_sdk_s3::{primitives::ByteStream, Client};
 
     use crate::book_helper::book_helper::Book;
 
-    pub async fn delete_from_bucket_top_level(client: &Client, location: &String, file_name: &String) {
+    pub async fn delete_from_bucket_top_level(
+        client: &Client,
+        location: &String,
+        file_name: &String,
+    ) {
         client
             .delete_object()
             .bucket(location)
@@ -17,7 +20,7 @@ pub mod s3_helper {
     pub async fn write_chunk(client: &Client, location: &String, book_chunk: Book) {
         let to_write = bincode::serialize(&book_chunk).unwrap();
         let write_location = book_chunk.name;
-    
+
         save_to_bucket_top_level(
             &client,
             &location,
