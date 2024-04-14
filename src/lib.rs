@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use book_helper::book_helper::book_from_text;
 use file_helper::file_helper::read_file;
 use s3_helper::s3_helper::{
-    bucket_does_not_exist, checkout_smallest_chunk, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk
+    bucket_does_not_exist, checkout_smallest_chunk, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk, delete_chunk
 };
 mod book_helper;
 mod file_helper;
@@ -36,6 +36,7 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
 pub async fn process(endpoint: String, location: String) {
     let config = aws_config::from_env().endpoint_url(endpoint).load().await;
     let client = aws_sdk_s3::Client::new(&config);
-    let b = checkout_smallest_chunk(&client, &location).await;
-    dbg!(b.unwrap().name);
+    let b = checkout_smallest_chunk(&client, &location).await.unwrap();
+    dbg!(&b.name);
+    delete_chunk(&client, &location, b).await;
 }

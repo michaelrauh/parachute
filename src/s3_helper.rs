@@ -6,6 +6,10 @@ pub mod s3_helper {
 
     use crate::book_helper::book_helper::Book;
 
+    pub async fn delete_chunk(client: &Client, location: &String, book: Book) {
+        delete_from_bucket_top_level(client, location, &("singleprocessing/".to_owned() + &book.name)).await
+    }
+
     pub async fn delete_from_bucket_top_level(
         client: &Client,
         location: &String,
