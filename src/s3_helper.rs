@@ -39,18 +39,19 @@ pub mod s3_helper {
         if f.is_none() {
             return None;
         } else {
-            let f = f.unwrap();
-            let f = &("singleprocessing/".to_string() + &f);
+            let f = &f.unwrap();
             move_chunk(client, &bucket.to_string(), f).await;
             Some(read_chunk(client, bucket, f).await)
         }
     }
 
     async fn read_chunk(client: &Client, bucket: &str, f: &str) -> Book {
+
+
         let stream: ByteStream = client
             .get_object()
             .bucket(bucket)
-            .key(f)
+            .key("singleprocessing/".to_string() + f)
             .send()
             .await
             .unwrap()
@@ -74,14 +75,16 @@ pub mod s3_helper {
 
         let vec = response.unwrap().contents;
         let vec = &vec.unwrap();
-        let minimum = vec.iter().min_by(|x, y| x.size.cmp(&y.size));
+        let minimum = vec.iter().filter(|o| o.key().unwrap().split("/").next().unwrap().eq("chunks")).min_by(|x, y| x.size.cmp(&y.size));
 
         if minimum.is_none() {
             return None;
         } else {
             let thing = minimum.unwrap();
-            let k = &thing.key;
-            return Some(k.clone().unwrap());
+            let key = &thing.key;
+            let key = &key.clone().unwrap();
+            let k = &key.split("/").last();
+            return Some(k.clone().unwrap().to_string());
         }
     }
 
@@ -95,7 +98,7 @@ pub mod s3_helper {
             .copy_object()
             .copy_source(source_bucket_and_object)
             .bucket(location)
-            .key(file_name)
+            .key("singleprocessing/".to_owned() + file_name)
             .send()
             .await
             .unwrap();

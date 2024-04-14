@@ -11,11 +11,11 @@ mod s3_helper;
 
 #[::tokio::main]
 pub async fn add(file_name: String, endpoint: String, location: String) {
-    let config = aws_config::from_env().endpoint_url(endpoint).load().await;
+    let config = aws_config::from_env().endpoint_url(endpoint).load().await; // todo move this into s3 helper and consider making it stateful to hide config / client
     let client = aws_sdk_s3::Client::new(&config);
     let text = read_to_string(&file_name).unwrap();
 
-    if bucket_does_not_exist(&client, &location).await {
+    if bucket_does_not_exist(&client, &location).await { // todo consider blocking on awaits. This is all sequential and fast compared to processing
         create_bucket(&client, &location).await;
     }
 
