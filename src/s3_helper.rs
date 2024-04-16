@@ -1,13 +1,15 @@
 pub mod s3_helper {
-    use aws_sdk_s3::{
-        primitives::ByteStream,
-        Client,
-    };
+    use aws_sdk_s3::{primitives::ByteStream, Client};
 
     use crate::book_helper::book_helper::Book;
 
     pub async fn delete_chunk(client: &Client, location: &String, book: Book) {
-        delete_from_bucket_top_level(client, location, &("singleprocessing/".to_owned() + &book.name)).await
+        delete_from_bucket_top_level(
+            client,
+            location,
+            &("singleprocessing/".to_owned() + &book.name),
+        )
+        .await
     }
 
     pub async fn delete_from_bucket_top_level(
@@ -50,8 +52,6 @@ pub mod s3_helper {
     }
 
     async fn read_chunk(client: &Client, bucket: &str, f: &str) -> Book {
-
-
         let stream: ByteStream = client
             .get_object()
             .bucket(bucket)
@@ -79,7 +79,10 @@ pub mod s3_helper {
 
         let vec = response.unwrap().contents;
         let vec = &vec.unwrap();
-        let minimum = vec.iter().filter(|o| o.key().unwrap().split("/").next().unwrap().eq("chunks")).min_by(|x, y| x.size.cmp(&y.size));
+        let minimum = vec
+            .iter()
+            .filter(|o| o.key().unwrap().split("/").next().unwrap().eq("chunks"))
+            .min_by(|x, y| x.size.cmp(&y.size));
 
         if minimum.is_none() {
             return None;

@@ -1,4 +1,6 @@
 pub mod book_helper {
+    use std::collections::HashSet;
+
     use serde::{Deserialize, Serialize};
 
     pub fn book_from_text(file_name: &String, chunk: &str, chunk_number: usize) -> Book {
@@ -35,11 +37,31 @@ pub mod book_helper {
         name.to_string() + "-" + &chunk_number.to_string() + "." + extension
     }
 
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
     pub struct Book {
         pub name: String,
         pub provenance: Vec<String>,
-        pub pairs: Vec<(String, String)>, // todo dedup pairs. Consider keeping them in a set
+        pub pairs: Vec<(String, String)>, // todo dedup pairs. Consider keeping them in a set or hashmap
+    }
+
+    impl Book {
+        pub fn forward(&self, from: String) -> HashSet<String> {
+            self.pairs
+                .iter()
+                .filter(|(f, _s)| f == &from)
+                .map(|(_f, s)| s)
+                .cloned()
+                .collect()
+        }
+
+        pub fn backward(&self, to: String) -> HashSet<String> {
+            self.pairs
+                .iter()
+                .filter(|(_f, s)| s == &to)
+                .map(|(f, _s)| f)
+                .cloned()
+                .collect()
+        }
     }
 
     pub fn split_book_to_sentences(book: String) -> Vec<Vec<String>> {

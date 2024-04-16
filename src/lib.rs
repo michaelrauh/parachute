@@ -2,11 +2,17 @@ use std::fs::read_to_string;
 
 use book_helper::book_helper::book_from_text;
 use file_helper::file_helper::read_file;
+use folder::single_process;
 use s3_helper::s3_helper::{
-    bucket_does_not_exist, checkout_smallest_chunk, create_bucket, delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk, delete_chunk
+    bucket_does_not_exist, checkout_smallest_chunk, create_bucket, delete_chunk,
+    delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk,
 };
+mod answer_helper;
 mod book_helper;
 mod file_helper;
+mod folder;
+mod ortho;
+mod registry;
 mod s3_helper;
 
 #[::tokio::main]
@@ -15,7 +21,8 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
     let client = aws_sdk_s3::Client::new(&config);
     let text = read_to_string(&file_name).unwrap();
 
-    if bucket_does_not_exist(&client, &location).await { // todo consider blocking on awaits. This is all sequential and fast compared to processing
+    if bucket_does_not_exist(&client, &location).await {
+        // todo consider blocking on awaits. This is all sequential and fast compared to processing
         create_bucket(&client, &location).await;
     }
 
@@ -37,6 +44,7 @@ pub async fn process(endpoint: String, location: String) {
     let config = aws_config::from_env().endpoint_url(endpoint).load().await;
     let client = aws_sdk_s3::Client::new(&config);
     let b = checkout_smallest_chunk(&client, &location).await.unwrap();
-    dbg!(&b.name);
-    delete_chunk(&client, &location, b).await;
+    let ans = single_process(&b);
+    dbg!(ans.registry.squares.len()); // todo stop breaking law of demeter
+    delete_chunk(&client, &location, b).await; // todo save the answer somewhere before doing multiple
 }

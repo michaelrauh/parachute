@@ -20,3 +20,4 @@ Cargo.lock
 .minio.sys
 princess.txt
 database
+.vscode
