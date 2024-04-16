@@ -1,9 +1,9 @@
 use std::fs::read_to_string;
 
-use book_helper::book_helper::book_from_text;
-use file_helper::file_helper::read_file;
+use book_helper::book_from_text;
+use file_helper::read_file;
 use folder::single_process;
-use s3_helper::s3_helper::{
+use s3_helper::{
     bucket_does_not_exist, checkout_smallest_chunk, create_bucket, delete_chunk,
     delete_from_bucket_top_level, save_to_bucket_top_level, write_chunk,
 };

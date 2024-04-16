@@ -9,7 +9,7 @@ pub struct Registry {
 impl Registry {
     pub(crate) fn new(new_squares: Vec<Ortho>) -> Self {
         Registry {
-            squares: HashSet::from_iter(new_squares.into_iter())
+            squares: HashSet::from_iter(new_squares),
+        }
     }
-}
 }

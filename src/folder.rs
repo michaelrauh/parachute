@@ -1,4 +1,4 @@
-use crate::{answer_helper::Answer, book_helper::book_helper::Book, ortho::Ortho, registry::Registry};
+use crate::{answer_helper::Answer, book_helper::Book, ortho::Ortho, registry::Registry};
 
 pub fn single_process(book: &Book) -> Answer {
     let new_squares = ffbb(book);
