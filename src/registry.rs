@@ -14,7 +14,7 @@ impl Registry {
             squares: HashSet::from_iter(new_squares),
         }
     }
-    
+
     pub(crate) fn size(&self) -> usize {
         self.squares.len()
     }
