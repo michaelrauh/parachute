@@ -1,6 +1,6 @@
 use aws_sdk_s3::{primitives::ByteStream, Client};
 
-use crate::book_helper::Book;
+use crate::{answer_helper::Answer, book_helper::Book};
 
 pub async fn delete_chunk(client: &Client, location: &String, book: Book) {
     delete_from_bucket_top_level(
@@ -9,6 +9,19 @@ pub async fn delete_chunk(client: &Client, location: &String, book: Book) {
         &("singleprocessing/".to_owned() + &book.name),
     )
     .await
+}
+
+pub async fn save_answer(client: &Client, location: &String, ans: Answer) {
+    let to_write = bincode::serialize(&ans).unwrap();
+    let write_location = ans.name();
+
+    save_to_bucket_top_level(
+        client,
+        location,
+        &("answers/".to_string() + &write_location),
+        to_write.into(),
+    )
+    .await;
 }
 
 pub async fn delete_from_bucket_top_level(client: &Client, location: &String, file_name: &String) {

@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
-use crate::ortho::Ortho;
+use serde::{Deserialize, Serialize};
 
+use crate::ortho::Ortho;
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
     // todo consider hiding this behind s3 helper or vice-versa. Alternatively consider the same for the answer struct
     pub squares: HashSet<Ortho>,
@@ -11,5 +13,9 @@ impl Registry {
         Registry {
             squares: HashSet::from_iter(new_squares),
         }
+    }
+    
+    pub(crate) fn size(&self) -> usize {
+        self.squares.len()
     }
 }

@@ -1,4 +1,6 @@
-#[derive(PartialEq, Eq, Debug, Clone, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]
 pub struct Ortho {
     a: String,
     b: String,
