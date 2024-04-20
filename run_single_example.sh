@@ -1,1 +1,1 @@
-cargo run -- --mode single --location database --endpoint http://192.168.1.9:9000
+cargo run -- --location database --endpoint http://192.168.1.9:9000
