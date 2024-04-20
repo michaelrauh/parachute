@@ -1,4 +1,4 @@
-use clap::{command, Parser, ValueEnum};
+use clap::{command, Parser};
 use parachute::{add, process};
 
 #[derive(Parser, Debug)]
@@ -12,22 +12,14 @@ struct Args {
 
     #[arg(short, long, value_name = "FILENAME")]
     add: Option<String>,
-
-    #[arg(short, long, conflicts_with = "add")]
-    mode: Option<AgentMode>, // todo remove agent mode. Do single if there are chunks and multiple if not
-}
-
-#[derive(Parser, Debug, Clone, ValueEnum)]
-enum AgentMode {
-    Single,
-    Merge,
 }
 
 fn main() {
     let args = Args::parse();
 
     if args.add.is_some() {
-        add(args.add.unwrap(), args.endpoint, args.location)
+        add(args.add.unwrap(), args.endpoint.clone(), args.location.clone());
+        process(args.endpoint, args.location);
     } else {
         process(args.endpoint, args.location);
     }

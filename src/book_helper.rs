@@ -11,8 +11,8 @@ pub fn book_from_text(file_name: &str, chunk: &str, chunk_number: usize) -> Book
     }
 }
 
-fn make_pairs(chunk: &str) -> Vec<(String, String)> {
-    sentences_to_pairs(split_book_to_sentences(chunk.to_string()))
+fn make_pairs(chunk: &str) -> HashSet<(String, String)> {
+    HashSet::from_iter(sentences_to_pairs(split_book_to_sentences(chunk.to_string())))
 }
 
 fn sentences_to_pairs(sentences: Vec<Vec<String>>) -> Vec<(String, String)> {
@@ -40,7 +40,7 @@ fn calculate_name(file_name: &str, chunk_number: usize) -> String {
 pub struct Book {
     pub name: String,
     pub provenance: Vec<String>,
-    pub pairs: Vec<(String, String)>, // todo dedup pairs. Consider keeping them in a set or hashmap
+    pub pairs: HashSet<(String, String)>,
 }
 
 impl Book {
@@ -84,6 +84,8 @@ pub fn split_book_to_sentences(book: String) -> Vec<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::book_helper::{calculate_name, make_pairs};
 
     #[test]
@@ -91,14 +93,14 @@ mod tests {
         let result = make_pairs("This is a 5 chunk\n\nOf text that. has stops? end..");
         assert_eq!(
             result,
-            vec![
+            HashSet::from_iter(vec![
                 ("this".to_string(), "is".to_string()),
                 ("is".to_string(), "a".to_string()),
                 ("a".to_string(), "chunk".to_string()),
                 ("of".to_string(), "text".to_string()),
                 ("text".to_string(), "that".to_string()),
                 ("has".to_string(), "stops".to_string())
-            ]
+            ])
         );
     }
 
