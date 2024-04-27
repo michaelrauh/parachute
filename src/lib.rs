@@ -51,11 +51,11 @@ pub async fn process(endpoint: String, location: String) {
         bucket.save_answer(ans);
         bucket.delete_chunk(registry);
     } else {
-        if let (Some(source_answer), Some(target_answer)) = (
-            bucket.checkout_smallest_answer(),
-            bucket.checkout_largest_answer(),
-        ) {
-            merge_process(&source_answer, &target_answer);
+        if let Some((source_answer, target_answer)) = bucket.checkout_largest_and_smallest_answer() {
+            let new_answer = merge_process(&source_answer, &target_answer);
+            bucket.save_answer(new_answer);
+            bucket.delete_answer(source_answer);
+            bucket.delete_answer(target_answer);
         } else {
             return;
         }

@@ -135,4 +135,8 @@ impl Registry {
             .map(|l| Item::Line(l.clone()))
             .collect_vec()
     }
+    
+    pub(crate) fn contains_line_with(&self, f: &String, s: &String) -> bool {
+        self.pairs.contains(&Line { first: f.clone(), second: s.clone() })
+    }
 }

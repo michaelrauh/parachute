@@ -1,5 +1,6 @@
 use aws_sdk_s3::{primitives::ByteStream, Client};
 use futures::executor::block_on;
+use itertools::Itertools;
 
 use crate::registry::Registry;
 
@@ -29,6 +30,10 @@ impl Bucket {
         self.delete_from_bucket_top_level(&("singleprocessing/".to_owned() + &registry.name))
     }
 
+    pub fn delete_answer(&self, registry: Registry) {
+        self.delete_from_bucket_top_level(&("doubleprocessing/".to_owned() + &registry.name))
+    }
+
     pub fn save_answer(&self, ans: Registry) {
         let to_write = bincode::serialize(&ans).unwrap();
         let write_location = ans.name();
@@ -55,30 +60,34 @@ impl Bucket {
     }
 
     pub fn checkout_smallest_chunk(&self) -> Option<Registry> {
-        let f = self.get_smallest_file_name();
+        let f = self.get_smallest_file_name("chunks");
 
         if let Some(f) = f {
-            self.move_chunk(&f);
-            Some(self.read_chunk(&f))
+            self.move_chunk(&f, "chunks", "singleprocessing/");
+            Some(self.read_chunk(&f, "singleprocessing/"))
         } else {
             None
         }
     }
 
-    pub fn checkout_smallest_answer(&self) -> Option<Registry> {
-        todo!()
+    pub fn checkout_largest_and_smallest_answer(&self) -> Option<(Registry, Registry)> {
+        let f = self.get_largest_and_smallest_file_name("answers");
+
+        if let Some((l, s)) = f {
+            self.move_chunk(&l, "answers", "doubleprocessing/");
+            self.move_chunk(&s, "answers", "doubleprocessing/");
+            Some((self.read_chunk(&l, "doubleprocessing/"), self.read_chunk(&s, "doubleprocessing/")))
+        } else {
+            None
+        }
     }
 
-    pub fn checkout_largest_answer(&self) -> Option<Registry> {
-        todo!()
-    }
-
-    fn read_chunk(&self, f: &str) -> Registry {
+    fn read_chunk(&self, f: &str, prefix: &str) -> Registry {
         let stream: ByteStream = block_on(
             self.client
                 .get_object()
                 .bucket(self.location.clone())
-                .key("singleprocessing/".to_string() + f)
+                .key(prefix.to_string() + f)
                 .send(),
         )
         .unwrap()
@@ -91,7 +100,7 @@ impl Bucket {
         b
     }
 
-    fn get_smallest_file_name(&self) -> Option<String> {
+    fn get_smallest_file_name(&self, prefix: &str) -> Option<String> {
         let response = block_on(
             self.client
                 .list_objects_v2()
@@ -103,7 +112,7 @@ impl Bucket {
         let vec = &vec.unwrap();
         let minimum = vec
             .iter()
-            .filter(|o| o.key().unwrap().split('/').next().unwrap().eq("chunks"))
+            .filter(|o| o.key().unwrap().split('/').next().unwrap().eq(prefix))
             .min_by(|x, y| x.size.cmp(&y.size));
 
         if minimum.is_none() {
@@ -117,22 +126,23 @@ impl Bucket {
         }
     }
 
-    fn move_chunk(&self, file_name: &String) {
+    fn move_chunk(&self, file_name: &String, prefix: &str, processing_prefix: &str) {
         let mut source_bucket_and_object = "".to_string();
         source_bucket_and_object.push_str(&self.location);
         source_bucket_and_object.push('/');
-        source_bucket_and_object.push_str("chunks/");
+        source_bucket_and_object.push_str(prefix);
+        source_bucket_and_object.push('/');
         source_bucket_and_object.push_str(file_name);
         block_on(
             self.client
                 .copy_object()
                 .copy_source(source_bucket_and_object)
                 .bucket(self.location.clone())
-                .key("singleprocessing/".to_owned() + file_name)
+                .key(processing_prefix.to_owned() + file_name)
                 .send(),
         )
         .unwrap();
-        self.delete_from_bucket_top_level(&("chunks/".to_owned() + file_name));
+        self.delete_from_bucket_top_level(&(prefix.to_owned() + file_name));
     }
 
     pub fn save_to_bucket_top_level(&self, file_name: &String, body: ByteStream) {
@@ -156,4 +166,34 @@ impl Bucket {
         )
         .unwrap();
     }
+    
+    fn get_largest_and_smallest_file_name(&self, prefix: &str) -> Option<(String, String)> {
+        let response = block_on(
+            self.client
+                .list_objects_v2()
+                .bucket(self.location.clone())
+                .send(),
+        );
+
+        let vec = response.unwrap().contents;
+        let vec = &vec.unwrap();
+        let maximum = vec
+            .iter()
+            .filter(|o| o.key().unwrap().split('/').next().unwrap().eq(prefix))
+            .minmax_by(|x, y| x.size.cmp(&y.size));
+
+        match maximum {
+            itertools::MinMaxResult::NoElements => None,
+            itertools::MinMaxResult::OneElement(_) => None,
+            itertools::MinMaxResult::MinMax(min, max) => Some((extract_filename(min), extract_filename(max))),
+        }
+    }
+}
+
+fn extract_filename(min: &aws_sdk_s3::types::Object) -> String {
+        let thing = min;
+        let key = &thing.key;
+        let key = &key.clone().unwrap();
+        let k = &key.split('/').last();
+        (*k).unwrap().to_string()
 }

@@ -47,8 +47,7 @@ fn find_additional_squares(
         if let (Line(left), Line(center), Line(right)) = (l, c, r) {
             if left.second != center.second {
                 if combined_book
-                    .forward(left.second.clone())
-                    .contains(&right.second)
+                    .contains_line_with(&left.second, &right.second)
                 {
                     res.push(Ortho::new(
                         left.first.to_string(),
