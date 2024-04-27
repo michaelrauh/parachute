@@ -44,20 +44,22 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
 #[tokio::main]
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location);
-
-    if let Some(registry) = bucket.checkout_smallest_chunk() {
-        let ans = single_process(&registry);
-        dbg!(ans.size());
-        bucket.save_answer(ans);
-        bucket.delete_chunk(registry);
-    } else {
-        if let Some((source_answer, target_answer)) = bucket.checkout_largest_and_smallest_answer() {
-            let new_answer = merge_process(&source_answer, &target_answer);
-            bucket.save_answer(new_answer);
-            bucket.delete_answer(source_answer);
-            bucket.delete_answer(target_answer);
+    loop {
+        if let Some(registry) = bucket.checkout_smallest_chunk() {
+            let ans = single_process(&registry);
+            dbg!(ans.size());
+            bucket.save_answer(ans);
+            bucket.delete_chunk(registry);
         } else {
-            return;
-        }
+            if let Some((source_answer, target_answer)) = bucket.checkout_largest_and_smallest_answer() {
+                let new_answer = merge_process(&source_answer, &target_answer);
+                dbg!(&new_answer.size());
+                bucket.save_answer(new_answer);
+                bucket.delete_answer(source_answer);
+                bucket.delete_answer(target_answer);
+            } else {
+                break;
+            }
+        }    
     }
 }

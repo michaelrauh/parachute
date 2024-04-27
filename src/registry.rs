@@ -12,7 +12,7 @@ pub struct Registry {
 }
 impl Registry {
     pub(crate) fn size(&self) -> usize {
-        self.squares.len()
+        self.squares.len() + self.pairs.len()
     }
 
     // todo later chain in squares to cover the domain

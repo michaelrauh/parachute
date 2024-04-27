@@ -61,9 +61,11 @@ impl Bucket {
 
     pub fn checkout_smallest_chunk(&self) -> Option<Registry> {
         let f = self.get_smallest_file_name("chunks");
+        dbg!(&f);
 
         if let Some(f) = f {
             self.move_chunk(&f, "chunks", "singleprocessing/");
+            dbg!();
             Some(self.read_chunk(&f, "singleprocessing/"))
         } else {
             None
@@ -133,6 +135,7 @@ impl Bucket {
         source_bucket_and_object.push_str(prefix);
         source_bucket_and_object.push('/');
         source_bucket_and_object.push_str(file_name);
+        dbg!(&source_bucket_and_object);
         block_on(
             self.client
                 .copy_object()
@@ -142,7 +145,7 @@ impl Bucket {
                 .send(),
         )
         .unwrap();
-        self.delete_from_bucket_top_level(&(prefix.to_owned() + file_name));
+        self.delete_from_bucket_top_level(&(prefix.to_owned() + "/" + file_name));
     }
 
     pub fn save_to_bucket_top_level(&self, file_name: &String, body: ByteStream) {
