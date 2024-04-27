@@ -1,15 +1,19 @@
 use std::fs::read_to_string;
 
-use book_helper::book_from_text;
+use book_helper::Book;
 use file_helper::read_file;
-use folder::single_process;
+use folder::{merge_process, single_process};
 use s3_helper::Bucket;
 
+use crate::registry::Registry;
 
-mod answer_helper;
 mod book_helper;
+pub mod color;
+pub mod discontinuity_detector;
 mod file_helper;
 mod folder;
+pub mod item;
+pub mod line;
 mod ortho;
 mod registry;
 mod s3_helper;
@@ -30,8 +34,9 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
     let mut chunk_number = 0;
     for chunk_text in chunks {
         chunk_number += 1;
-        let book_chunk = book_from_text(&file_name, chunk_text, chunk_number);
-        bucket.write_chunk(book_chunk);
+        let book_chunk = Book::book_from_text(&file_name, chunk_text, chunk_number);
+        let registry = Registry::from_book(&book_chunk);
+        bucket.write_chunk(registry);
     }
     bucket.delete_from_bucket_top_level(&file_name);
 }
@@ -39,9 +44,20 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
 #[tokio::main]
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location);
-    let b = bucket.checkout_smallest_chunk().unwrap();
-    let ans = single_process(&b);
-    dbg!(ans.size());
-    bucket.save_answer(ans);
-    bucket.delete_chunk(b);
+
+    if let Some(registry) = bucket.checkout_smallest_chunk() {
+        let ans = single_process(&registry);
+        dbg!(ans.size());
+        bucket.save_answer(ans);
+        bucket.delete_chunk(registry);
+    } else {
+        if let (Some(source_answer), Some(target_answer)) = (
+            bucket.checkout_smallest_answer(),
+            bucket.checkout_largest_answer(),
+        ) {
+            merge_process(&source_answer, &target_answer);
+        } else {
+            return;
+        }
+    }
 }
