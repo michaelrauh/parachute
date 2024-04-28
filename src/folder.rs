@@ -12,16 +12,21 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
+    let mut total = 0.0;
+    let mut hit = 0.0;
     for line in both.iter() {
         let lhss = both.left_of(&line);
         let rhss = both.right_of(&line);
 
         for (lhs, rhs) in iproduct!(lhss, rhss) {
+            total += 1.0;
             if detector.discontinuity(&lhs, &line, &rhs) {
+                hit += 1.0;
                 check_back.push((lhs, line.clone(), rhs));
             }
         }
     }
+    dbg!(hit / total);
 
     let additional_squares = find_additional_squares(both, check_back);
     source_answer
