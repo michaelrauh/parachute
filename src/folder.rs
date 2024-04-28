@@ -1,42 +1,39 @@
-use crate::item::Item::Line;
+use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::iproduct;
 
 pub fn single_process(registry: &Registry) -> Registry {
     let new_squares = ffbb(registry);
-    registry.add(new_squares);
-    registry.clone()
+    registry.add(new_squares)
 }
 
 pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
-    let mut total = 0.0;
-    let mut hit = 0.0;
-    for line in both.iter() {
-        let lhss = both.left_of(&line);
+    let mut total = 0;
+    let mut hit = 0;
+    for line in both.get_lines() {
+        let lhss = both.left_of(line);
         let rhss = both.right_of(&line);
 
         for (lhs, rhs) in iproduct!(lhss, rhss) {
-            total += 1.0;
+            total += 1;
             if detector.discontinuity(&lhs, &line, &rhs) {
-                hit += 1.0;
-                check_back.push((lhs, line.clone(), rhs));
+                hit += 1;
+                check_back.push((lhs, line, rhs));
             }
         }
     }
-    dbg!(hit / total);
+    dbg!(hit * 100 / total);
 
-    let additional_squares = find_additional_squares(both, check_back);
-    source_answer
-        .union(target_answer)
-        .add(additional_squares)
+    let additional_squares = find_additional_squares(&both, check_back);
+    both.add(additional_squares)
 }
 
 fn find_additional_squares(
-    combined_book: Registry,
-    check_back: Vec<(crate::item::Item, crate::item::Item, crate::item::Item)>,
+    combined_book: &Registry,
+    check_back: Vec<(&Line, &Line, &Line)>,
 ) -> Vec<Ortho> {
     // left: a-b
     // center: a-c
@@ -48,22 +45,16 @@ fn find_additional_squares(
     // verify b != c
     // verify b -> d
     let mut res = vec![];
-    for (l, c, r) in check_back.iter() {
-        if let (Line(left), Line(center), Line(right)) = (l, c, r) {
-            if left.second != center.second {
-                if combined_book
-                    .contains_line_with(&left.second, &right.second)
-                {
-                    res.push(Ortho::new(
-                        left.first.to_string(),
-                        left.second.to_string(),
-                        right.first.clone(),
-                        right.second.clone(),
-                    ))
-                }
+    for (left, center, right) in check_back.iter() {
+        if left.second != center.second {
+            if combined_book.contains_line_with(&left.second, &right.second) {
+                res.push(Ortho::new(
+                    left.first.to_string(),
+                    left.second.to_string(),
+                    right.first.clone(),
+                    right.second.clone(),
+                ))
             }
-        } else {
-            todo!()
         }
     }
 

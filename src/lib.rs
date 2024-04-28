@@ -1,5 +1,6 @@
-use std::fs::read_to_string;
+use std::{fmt::Display, fs::read_to_string};
 
+use ascii_table::{Align, AsciiTable};
 use book_helper::Book;
 use file_helper::read_file;
 use folder::{merge_process, single_process};
@@ -47,22 +48,44 @@ pub async fn process(endpoint: String, location: String) {
     loop {
         if let Some(registry) = bucket.checkout_smallest_chunk().await {
             let ans = single_process(&registry);
-            dbg!(ans.size());
+
+            let mut ascii_table = AsciiTable::default();
+            ascii_table.column(0).set_header("single").set_align(Align::Left);
+
+            let data: Vec<Vec<usize>> = vec![
+             vec![ans.number_of_pairs()],
+            vec![ans.number_of_squares()]
+];
+ascii_table.print(data);
+
+
             bucket.save_answer(ans).await;
             bucket.delete_chunk(registry).await;
         } else {
-            if let Some((source_answer, target_answer)) = bucket.checkout_largest_and_smallest_answer().await {
-                dbg!(&source_answer.size());
-                dbg!(&target_answer.size());
+            if let Some((source_answer, target_answer)) =
+                bucket.checkout_largest_and_smallest_answer().await
+            {
                 let new_answer = merge_process(&source_answer, &target_answer);
-                dbg!(&new_answer.size());
-                dbg!(&new_answer.provenance);
+                let mut ascii_table = AsciiTable::default();
+
+                // ascii_table.set_max_width(26);
+                ascii_table.column(0).set_header("source").set_align(Align::Left);
+                ascii_table.column(1).set_header("target").set_align(Align::Left);
+                ascii_table.column(2).set_header("answer").set_align(Align::Left);
+
+
+
+                let data: Vec<Vec<usize>> = vec![
+                 vec![source_answer.number_of_pairs(), target_answer.number_of_pairs(), new_answer.number_of_pairs()],
+                vec![source_answer.number_of_squares(), target_answer.number_of_squares(), new_answer.number_of_squares()]
+];
+ascii_table.print(data);
                 bucket.save_answer(new_answer).await;
                 bucket.delete_answer(source_answer).await;
                 bucket.delete_answer(target_answer).await;
             } else {
                 break;
             }
-        }    
+        }
     }
 }

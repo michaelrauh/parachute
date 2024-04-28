@@ -2,7 +2,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-use crate::{book_helper::Book, item::Item, line::Line, ortho::Ortho};
+use crate::{book_helper::Book, line::Line, ortho::Ortho};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
     pub squares: HashSet<Ortho>,
@@ -11,17 +11,16 @@ pub struct Registry {
     pub provenance: Vec<String>,
 }
 impl Registry {
-    pub(crate) fn size(&self) -> usize {
-        self.squares.len() + self.pairs.len()
+    pub(crate) fn number_of_pairs(&self) -> usize {
+        self.pairs.len()
     }
 
-    // todo later chain in squares to cover the domain
-    // todo rename this or make it actually iter
-    pub(crate) fn iter(&self) -> Vec<Item> {
-        self.pairs
-            .iter()
-            .map(|l| Item::Line(l.clone()))
-            .collect_vec()
+    pub(crate) fn number_of_squares(&self) -> usize {
+        self.squares.len()
+    }
+
+    pub(crate) fn get_lines(&self) -> Vec<&Line> {
+        self.pairs.iter().collect_vec()
     }
 
     pub fn forward(&self, from: String) -> HashSet<String> {
@@ -40,7 +39,7 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn left_of(&self, item: &Item) -> Vec<Item> {
+    pub(crate) fn left_of(&self, item: &Line) -> Vec<&Line> {
         // for line-line-line relationships, this is as simple as:
         // left: a-b
         // center: a-c
@@ -48,19 +47,11 @@ impl Registry {
         // a-b
         // |
         // c-d
-        if let crate::registry::Item::Line(line) = item {
-            self.lines_starting_with(&line.first)
-        } else {
-            todo!()
-        }
+        self.lines_starting_with(&item.first)
     }
 
-    pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
-        if let crate::registry::Item::Line(line) = item {
-            self.lines_starting_with(&line.second)
-        } else {
-            todo!()
-        }
+    pub(crate) fn right_of(&self, item: &Line) -> Vec<&Line> {
+        self.lines_starting_with(&item.second)
     }
 
     pub fn name(&self) -> &str {
@@ -68,7 +59,9 @@ impl Registry {
     }
 
     pub(crate) fn minus(&self, target_answer: &Self) -> Self {
-        // todo separate out the name holder from the rest. Names and provenance are only useful when writing out. The other fields are useful during run
+        let self_prov: HashSet<_> = HashSet::from_iter(self.provenance.clone());
+        let other_prov: HashSet<_> = HashSet::from_iter(target_answer.provenance.clone());
+        let new_provenance: Vec<String> = self_prov.difference(&other_prov).cloned().collect_vec();
         Registry {
             squares: self
                 .squares
@@ -81,7 +74,7 @@ impl Registry {
                 .cloned()
                 .collect(),
             name: self.name.clone(),
-            provenance: vec![self.name.clone()],
+            provenance: new_provenance,
         }
     }
 
@@ -94,7 +87,7 @@ impl Registry {
                 .collect(),
             pairs: self.pairs.union(&target_answer.pairs).cloned().collect(),
             name: self.name.clone(),
-            provenance: vec![self.name.clone()],
+            provenance: self.provenance.iter().chain(target_answer.provenance.iter()).cloned().collect_vec(),
         }
     }
 
@@ -107,7 +100,7 @@ impl Registry {
                 .collect(),
             pairs: self.pairs.clone(),
             name: self.name.clone(),
-            provenance: vec![self.name.clone()],
+            provenance: self.provenance.clone(),
         }
     }
 
@@ -120,23 +113,21 @@ impl Registry {
         }
     }
 
-    pub(crate) fn contains(&self, item: &Item) -> bool {
-        if let crate::registry::Item::Line(line) = item {
-            self.pairs.contains(line)
-        } else {
-            todo!()
-        }
+    pub(crate) fn contains(&self, item: &Line) -> bool {
+        self.pairs.contains(item)
     }
 
-    fn lines_starting_with(&self, first: &String) -> Vec<Item> {
+    fn lines_starting_with(&self, first: &String) -> Vec<&Line> {
         self.pairs
             .iter()
             .filter(|l| &l.first == first)
-            .map(|l| Item::Line(l.clone()))
             .collect_vec()
     }
-    
+
     pub(crate) fn contains_line_with(&self, f: &String, s: &String) -> bool {
-        self.pairs.contains(&Line { first: f.clone(), second: s.clone() })
+        self.pairs.contains(&Line {
+            first: f.clone(),
+            second: s.clone(),
+        })
     }
 }

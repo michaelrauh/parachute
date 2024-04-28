@@ -23,7 +23,6 @@ fn main() {
             args.endpoint.clone(),
             args.location.clone(),
         );
-        process(args.endpoint, args.location);
     } else {
         process(args.endpoint, args.location);
     }

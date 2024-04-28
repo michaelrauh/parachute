@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::line::Line;
 use crate::registry::Registry;
 
 pub struct DiscontinuityDetector {
@@ -13,12 +14,7 @@ impl DiscontinuityDetector {
         }
     }
 
-    pub(crate) fn discontinuity(
-        &self,
-        lhs: &crate::item::Item,
-        line: &crate::item::Item,
-        rhs: &crate::item::Item,
-    ) -> bool {
+    pub(crate) fn discontinuity(&self, lhs: &Line, line: &Line, rhs: &Line) -> bool {
         match (self.color(lhs), self.color(line), self.color(rhs)) {
             (Color::Black, Color::Black, Color::Red) => true,
             (Color::Black, Color::Red, Color::Black) => true,
@@ -36,7 +32,7 @@ impl DiscontinuityDetector {
         }
     }
 
-    fn color(&self, lhs: &crate::item::Item) -> Color {
+    fn color(&self, lhs: &Line) -> Color {
         if self.source_only.contains(lhs) {
             Color::Black
         } else if self.destination_only.contains(lhs) {
