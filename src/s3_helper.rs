@@ -38,6 +38,12 @@ impl Bucket {
             .await
     }
 
+    pub async fn delete_largest_answer(&self) {
+        let f = self.get_largest_file_name("answers").await;
+        self.delete_from_bucket_top_level(&("answers/".to_owned() + &f.unwrap()))
+            .await
+    }
+
     pub async fn save_answer(&self, ans: Registry) {
         let to_write = bincode::serialize(&ans).unwrap();
         let write_location = ans.name();
@@ -54,6 +60,10 @@ impl Bucket {
             .send()
             .await
             .unwrap();
+    }
+
+    pub async fn dump_results(&self) {
+        dbg!(self.read_largest_chunk().await.unwrap().squares);
     }
 
     pub async fn write_chunk(&self, book_chunk: Registry) {
@@ -85,6 +95,18 @@ impl Bucket {
                 self.read_chunk(&l, "doubleprocessing/").await,
                 self.read_chunk(&s, "doubleprocessing/").await,
             ))
+        } else {
+            None
+        }
+    }
+
+    pub async fn read_largest_chunk(&self) -> Option<Registry> {
+        let f = self.get_largest_file_name("answers").await;
+
+        if let Some(l) = f {
+            Some(
+                self.read_chunk(&l, "answers/").await
+            )
         } else {
             None
         }
@@ -129,6 +151,32 @@ impl Bucket {
             None
         } else {
             let thing = minimum.unwrap();
+            let key = &thing.key;
+            let key = &key.clone().unwrap();
+            let k = &key.split('/').last();
+            Some((*k).unwrap().to_string())
+        }
+    }
+    
+    async fn get_largest_file_name(&self, prefix: &str) -> Option<String> {
+        let response = self
+            .client
+            .list_objects_v2()
+            .bucket(self.location.clone())
+            .send()
+            .await;
+
+        let vec = response.unwrap().contents;
+        let vec = &vec.unwrap();
+        let maximum = vec
+            .iter()
+            .filter(|o| o.key().unwrap().split('/').next().unwrap().eq(prefix))
+            .max_by(|x, y| x.size.cmp(&y.size));
+
+        if maximum.is_none() {
+            None
+        } else {
+            let thing = maximum.unwrap();
             let key = &thing.key;
             let key = &key.clone().unwrap();
             let k = &key.split('/').last();

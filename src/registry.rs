@@ -87,7 +87,12 @@ impl Registry {
                 .collect(),
             pairs: self.pairs.union(&target_answer.pairs).cloned().collect(),
             name: self.name.clone(),
-            provenance: self.provenance.iter().chain(target_answer.provenance.iter()).cloned().collect_vec(),
+            provenance: self
+                .provenance
+                .iter()
+                .chain(target_answer.provenance.iter())
+                .cloned()
+                .collect_vec(),
         }
     }
 

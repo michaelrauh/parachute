@@ -1,4 +1,4 @@
-use std::{fmt::Display, fs::read_to_string};
+use std::{fs::read_to_string, time::Instant};
 
 use ascii_table::{Align, AsciiTable};
 use book_helper::Book;
@@ -43,6 +43,20 @@ pub async fn add(file_name: String, endpoint: String, location: String) {
 }
 
 #[tokio::main]
+pub async fn get(endpoint: String, location: String) {
+    let bucket = Bucket::new(endpoint, location).await;
+
+    bucket.dump_results().await;
+}
+
+#[tokio::main]
+pub async fn delete(endpoint: String, location: String) {
+    let bucket = Bucket::new(endpoint, location).await;
+
+    bucket.delete_largest_answer().await
+}
+
+#[tokio::main]
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location).await;
     loop {
@@ -50,14 +64,14 @@ pub async fn process(endpoint: String, location: String) {
             let ans = single_process(&registry);
 
             let mut ascii_table = AsciiTable::default();
-            ascii_table.column(0).set_header("single").set_align(Align::Left);
+            ascii_table
+                .column(0)
+                .set_header("single")
+                .set_align(Align::Left);
 
-            let data: Vec<Vec<usize>> = vec![
-             vec![ans.number_of_pairs()],
-            vec![ans.number_of_squares()]
-];
-ascii_table.print(data);
-
+            let data: Vec<Vec<usize>> =
+                vec![vec![ans.number_of_pairs()], vec![ans.number_of_squares()]];
+            ascii_table.print(data);
 
             bucket.save_answer(ans).await;
             bucket.delete_chunk(registry).await;
@@ -65,21 +79,40 @@ ascii_table.print(data);
             if let Some((source_answer, target_answer)) =
                 bucket.checkout_largest_and_smallest_answer().await
             {
+                let start = Instant::now();
                 let new_answer = merge_process(&source_answer, &target_answer);
+                let duration = start.elapsed();
+
+                println!("Time elapsed in merge is: {:?}", duration);
+
                 let mut ascii_table = AsciiTable::default();
 
-                // ascii_table.set_max_width(26);
-                ascii_table.column(0).set_header("source").set_align(Align::Left);
-                ascii_table.column(1).set_header("target").set_align(Align::Left);
-                ascii_table.column(2).set_header("answer").set_align(Align::Left);
-
-
+                ascii_table
+                    .column(0)
+                    .set_header(source_answer.provenance.len().to_string())
+                    .set_align(Align::Left);
+                ascii_table
+                    .column(1)
+                    .set_header(target_answer.provenance.len().to_string())
+                    .set_align(Align::Left);
+                ascii_table
+                    .column(2)
+                    .set_header(new_answer.provenance.len().to_string())
+                    .set_align(Align::Left);
 
                 let data: Vec<Vec<usize>> = vec![
-                 vec![source_answer.number_of_pairs(), target_answer.number_of_pairs(), new_answer.number_of_pairs()],
-                vec![source_answer.number_of_squares(), target_answer.number_of_squares(), new_answer.number_of_squares()]
-];
-ascii_table.print(data);
+                    vec![
+                        source_answer.number_of_pairs(),
+                        target_answer.number_of_pairs(),
+                        new_answer.number_of_pairs(),
+                    ],
+                    vec![
+                        source_answer.number_of_squares(),
+                        target_answer.number_of_squares(),
+                        new_answer.number_of_squares(),
+                    ],
+                ];
+                ascii_table.print(data);
                 bucket.save_answer(new_answer).await;
                 bucket.delete_answer(source_answer).await;
                 bucket.delete_answer(target_answer).await;

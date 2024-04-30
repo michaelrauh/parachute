@@ -14,7 +14,7 @@ impl DiscontinuityDetector {
         }
     }
 
-    pub(crate) fn discontinuity(&self, lhs: &Line, line: &Line, rhs: &Line) -> bool {
+    pub(crate) fn discontinuity(&self, lhs: &Line, line: &Line, rhs: &Line) -> bool { // todo symmetry breaking
         match (self.color(lhs), self.color(line), self.color(rhs)) {
             (Color::Black, Color::Black, Color::Red) => true,
             (Color::Black, Color::Red, Color::Black) => true,

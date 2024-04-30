@@ -11,7 +11,7 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
-    let mut total = 0;
+    let mut total: u128 = 0;
     let mut hit = 0;
     for line in both.get_lines() {
         let lhss = both.left_of(line);
@@ -25,7 +25,12 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
             }
         }
     }
-    dbg!(hit * 100 / total);
+    if total != 0 {
+        dbg!(hit * 100 / total);
+    } else {
+        dbg!(total);
+    }
+    
 
     let additional_squares = find_additional_squares(&both, check_back);
     both.add(additional_squares)
