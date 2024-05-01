@@ -1,3 +1,3 @@
 # parachute
 
-Implementation of [pocket-square](https://github.com/michaelrauh/pocket-square) ideas.
+Implementation of [pocket-square](https://github.com/michaelrauh/pocket-square) ideas. In particular, it seeks to do state merging following the [silkworm](https://github.com/michaelrauh/silkworm) pattern, with a data combination pattern based loosely on [polyvinyl-acetate](https://github.com/michaelrauh/polyvinyl-acetate). It may pull in metasearch capabililities from [rosette](https://github.com/michaelrauh/rosette) for first-pass creation, then fall back to pvac-style "fixing" (which involves not assuming direction). Ideally representation of results will be similar to in [bnb-fold](https://github.com/michaelrauh/bnb-fold). The biggest difference in this from the other approaches is the concept of repairing graph discontinuities, and potentially in doing partial searches against a full index.
