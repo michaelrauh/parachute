@@ -1,8 +1,12 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use crate::registry::Item::Square;
+use crate::registry::Item::Pair;
 
-use crate::{book_helper::Book, line::Line, ortho::Ortho};
+
+
+use crate::{book_helper::Book, item::Item, line::Line, ortho::Ortho};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
     pub squares: HashSet<Ortho>,
@@ -17,10 +21,6 @@ impl Registry {
 
     pub(crate) fn number_of_squares(&self) -> usize {
         self.squares.len()
-    }
-
-    pub(crate) fn get_lines(&self) -> Vec<&Line> {
-        self.pairs.iter().collect_vec()
     }
 
     pub fn forward(&self, from: String) -> HashSet<String> {
@@ -39,7 +39,7 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn left_of(&self, item: &Line) -> Vec<&Line> {
+    pub(crate) fn left_of(&self, item: &Item) -> Vec<Item> {
         // for line-line-line relationships, this is as simple as:
         // left: a-b
         // center: a-c
@@ -47,11 +47,18 @@ impl Registry {
         // a-b
         // |
         // c-d
-        self.lines_starting_with(&item.first)
+        match item {
+            Item::Pair(l) => self.lines_starting_with(&l.first),
+            Item::Square(_) => todo!(),
+        }
+        
     }
 
-    pub(crate) fn right_of(&self, item: &Line) -> Vec<&Line> {
-        self.lines_starting_with(&item.second)
+    pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
+        match item {
+            Pair(l) => self.lines_starting_with(&l.second),
+            Square(_) => todo!(),
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -118,14 +125,18 @@ impl Registry {
         }
     }
 
-    pub(crate) fn contains(&self, item: &Line) -> bool {
-        self.pairs.contains(item)
+    pub(crate) fn contains(&self, item: &Item) -> bool {
+        match item {
+            Pair(l) => self.pairs.contains(l),
+            Square(_) => todo!(),
+        }
     }
 
-    fn lines_starting_with(&self, first: &String) -> Vec<&Line> {
+    fn lines_starting_with(&self, first: &String) -> Vec<Item> {
         self.pairs
             .iter()
             .filter(|l| &l.first == first)
+            .map(|l| Pair(l))
             .collect_vec()
     }
 
@@ -134,5 +145,9 @@ impl Registry {
             first: f.clone(),
             second: s.clone(),
         })
+    }
+    
+    pub(crate) fn items(&self) -> Vec<Item> {
+        self.squares.iter().map(|s| Square(s)).chain(self.pairs.iter().map(|p| Pair(&p))).collect()
     }
 }

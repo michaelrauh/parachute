@@ -96,8 +96,6 @@ impl PartialEq for Square {
 
 #[cfg(test)]
 mod tests {
-    use crate::square::Square;
-
 
     #[test]
     fn things_are_not_equal_if_they_are_different_sizes_even_if_packed_data_is_the_same_length() {

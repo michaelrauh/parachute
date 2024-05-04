@@ -1,3 +1,4 @@
+use crate::item::Item;
 use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::iproduct;
@@ -13,15 +14,15 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     let mut check_back = vec![];
     let mut total: u128 = 0;
     let mut hit = 0;
-    for line in both.get_lines() {
-        let lhss = both.left_of(line);
+    for line in both.items().iter() {
+        let lhss = both.left_of(&line);
         let rhss = both.right_of(&line);
 
         for (lhs, rhs) in iproduct!(lhss, rhss) {
             total += 1;
             if detector.discontinuity(&lhs, &line, &rhs) {
                 hit += 1;
-                check_back.push((lhs, line, rhs));
+                check_back.push((lhs, line.clone(), rhs));
             }
         }
     }
@@ -37,8 +38,27 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
 
 fn find_additional_squares(
     combined_book: &Registry,
-    check_back: Vec<(&Line, &Line, &Line)>,
+    check_back: Vec<(Item, Item, Item)>,
 ) -> Vec<Ortho> {
+    let mut res = vec![];
+    for (left, center, right) in check_back.iter() {
+        let mut cur = match (left, center, right) {
+            (Item::Pair(l), Item::Pair(c), Item::Pair(r)) => handle_lines(combined_book, l, c, r),
+            (Item::Pair(_), Item::Pair(_), Item::Square(_)) => todo!(),
+            (Item::Pair(_), Item::Square(_), Item::Pair(_)) => todo!(),
+            (Item::Pair(_), Item::Square(_), Item::Square(_)) => todo!(),
+            (Item::Square(_), Item::Pair(_), Item::Pair(_)) => todo!(),
+            (Item::Square(_), Item::Pair(_), Item::Square(_)) => todo!(),
+            (Item::Square(_), Item::Square(_), Item::Pair(_)) => todo!(),
+            (Item::Square(_), Item::Square(_), Item::Square(_)) => todo!(),
+        };
+        res.append(&mut cur);
+    }
+
+    res
+}
+
+fn handle_lines(combined_book: &Registry, left: &Line, center: &Line, right: &Line) -> Vec<Ortho> {
     // left: a-b
     // center: a-c
     // right: c-d
@@ -49,19 +69,16 @@ fn find_additional_squares(
     // verify b != c
     // verify b -> d
     let mut res = vec![];
-    for (left, center, right) in check_back.iter() {
-        if left.second != center.second {
-            if combined_book.contains_line_with(&left.second, &right.second) {
-                res.push(Ortho::new(
-                    left.first.to_string(),
-                    left.second.to_string(),
-                    right.first.clone(),
-                    right.second.clone(),
-                ))
-            }
+    if left.second != center.second {
+        if combined_book.contains_line_with(&left.second, &right.second) {
+            res.push(Ortho::new(
+                left.first.to_string(),
+                left.second.to_string(),
+                right.first.clone(),
+                right.second.clone(),
+            ))
         }
     }
-
     res
 }
 
