@@ -33,8 +33,7 @@ fn main() {
         );
     } else if args.delete {
         delete(args.endpoint, args.location);
-    }
-        else {
+    } else {
         process(args.endpoint, args.location);
     }
 }

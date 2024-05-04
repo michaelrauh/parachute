@@ -18,6 +18,7 @@ pub mod line;
 mod ortho;
 mod registry;
 mod s3_helper;
+pub mod square;
 
 #[tokio::main]
 pub async fn add(file_name: String, endpoint: String, location: String) {

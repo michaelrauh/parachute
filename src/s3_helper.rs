@@ -104,9 +104,7 @@ impl Bucket {
         let f = self.get_largest_file_name("answers").await;
 
         if let Some(l) = f {
-            Some(
-                self.read_chunk(&l, "answers/").await
-            )
+            Some(self.read_chunk(&l, "answers/").await)
         } else {
             None
         }
@@ -157,7 +155,7 @@ impl Bucket {
             Some((*k).unwrap().to_string())
         }
     }
-    
+
     async fn get_largest_file_name(&self, prefix: &str) -> Option<String> {
         let response = self
             .client

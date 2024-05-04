@@ -30,7 +30,6 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     } else {
         dbg!(total);
     }
-    
 
     let additional_squares = find_additional_squares(&both, check_back);
     both.add(additional_squares)
