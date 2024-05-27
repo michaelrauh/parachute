@@ -47,17 +47,29 @@ impl Registry {
         // a-b
         // |
         // c-d
+
+        // for square-line-square relationships, you get:
+        // left: origin, hop, contents. Start with origin:
+        // left square.origin = a
+        // center: a-b
+        // right: other_square.origin = b
+
+        // if the item is a square, you have a square in the center which is not useful. 
+        // return an empty for now but consider unbundling item out and managing these calls separately
+        // to avoid this situation
+        // todo add hop and contents
+        // todo handle spline
         match item {
-            Item::Pair(l) => self.lines_starting_with(&l.first),
-            Item::Square(_) => todo!(),
+            Item::Pair(l) => self.lines_starting_with(&l.first).iter().chain(self.squares_with_origin(&l.first).iter()).cloned().collect(),
+            Item::Square(_) => vec![],
         }
         
     }
 
     pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
         match item {
-            Pair(l) => self.lines_starting_with(&l.second),
-            Square(_) => todo!(),
+            Item::Pair(l) => self.lines_starting_with(&l.second).iter().chain(self.squares_with_origin(&l.second).iter()).cloned().collect(),
+            Item::Square(_) => vec![],
         }
     }
 
@@ -116,6 +128,10 @@ impl Registry {
         }
     }
 
+    pub(crate) fn add_mut(&mut self, additional_squares: Vec<Ortho>) {
+        self.squares.extend(additional_squares);
+    }
+
     pub(crate) fn from_book(book: &Book) -> Self {
         Registry {
             squares: HashSet::default(),
@@ -128,7 +144,7 @@ impl Registry {
     pub(crate) fn contains(&self, item: &Item) -> bool {
         match item {
             Pair(l) => self.pairs.contains(l),
-            Square(_) => todo!(),
+            Square(s) => self.squares.contains(s),
         }
     }
 
@@ -149,5 +165,9 @@ impl Registry {
     
     pub(crate) fn items(&self) -> Vec<Item> {
         self.squares.iter().map(|s| Square(s)).chain(self.pairs.iter().map(|p| Pair(&p))).collect()
+    }
+    
+    pub fn squares_with_origin(&self, origin: &str) -> Vec<Item> {
+        self.squares.iter().filter(|o| o.origin() == origin).map(|o| Item::Square(o)).collect()
     }
 }

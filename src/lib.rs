@@ -9,6 +9,7 @@ use s3_helper::Bucket;
 use crate::registry::Registry;
 
 mod book_helper;
+mod hit_counter;
 pub mod color;
 pub mod discontinuity_detector;
 mod file_helper;
