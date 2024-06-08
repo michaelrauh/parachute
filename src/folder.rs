@@ -104,7 +104,7 @@ fn handle_connection(registry: &Registry, l: &&Ortho, r: &&Ortho) -> Vec<Ortho> 
 
 fn attempt_combine_up_by_corresponding_configuration(registry: &Registry, l: &&Ortho, r: &&Ortho, correspondence: Vec<(String, String)>) -> Vec<Ortho> {
     if all_other_connections_work(registry, l, r, &correspondence) {
-        l.zip_up(r, &correspondence)
+        vec![l.zip_up(r, &correspondence)]
     } else {
         vec![]
     }

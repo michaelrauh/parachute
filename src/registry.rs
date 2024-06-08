@@ -128,10 +128,6 @@ impl Registry {
         }
     }
 
-    pub(crate) fn add_mut(&mut self, additional_squares: Vec<Ortho>) {
-        self.squares.extend(additional_squares);
-    }
-
     pub(crate) fn from_book(book: &Book) -> Self {
         Registry {
             squares: HashSet::default(),
