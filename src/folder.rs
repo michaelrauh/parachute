@@ -7,7 +7,7 @@ use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::{iproduct, Itertools};
 
-pub fn single_process(registry: &Registry) -> Registry {
+pub fn single_process(registry: &Registry) -> Registry { // todo test
     let new_squares = ffbb(registry);
     let r = registry.add(new_squares.clone());
     fold_up_by_origin_repeatedly(r, new_squares)
@@ -48,7 +48,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
         .collect()
 }
 
-pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
+pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry { // todo test
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];

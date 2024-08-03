@@ -13,15 +13,15 @@ pub struct Registry {
     pub provenance: Vec<String>,
 }
 impl Registry {
-    pub(crate) fn number_of_pairs(&self) -> usize {
+    pub(crate) fn number_of_pairs(&self) -> usize { // todo test
         self.pairs.len()
     }
 
-    pub(crate) fn number_of_squares(&self) -> usize {
+    pub(crate) fn number_of_squares(&self) -> usize { // todo test
         self.squares.len()
     }
 
-    pub fn forward(&self, from: String) -> HashSet<String> {
+    pub fn forward(&self, from: String) -> HashSet<String> { // todo test
         self.pairs
             .iter()
             .filter(|l| l.first == from)
@@ -29,7 +29,7 @@ impl Registry {
             .collect()
     }
 
-    pub fn backward(&self, to: String) -> HashSet<String> {
+    pub fn backward(&self, to: String) -> HashSet<String> { // todo test
         self.pairs
             .iter()
             .filter(|l| l.second == to)
@@ -37,7 +37,7 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn left_of(&self, item: &Item) -> Vec<Item> {
+    pub(crate) fn left_of(&self, item: &Item) -> Vec<Item> { // todo test
         // for line-line-line relationships, this is as simple as:
         // left: a-b
         // center: a-c
@@ -68,7 +68,7 @@ impl Registry {
         }
     }
 
-    pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
+    pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> { // todo test
         match item {
             Item::Pair(l) => self
                 .lines_starting_with(&l.second)
@@ -80,11 +80,11 @@ impl Registry {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &str { // todo test
         &self.name
     }
 
-    pub(crate) fn minus(&self, target_answer: &Self) -> Self {
+    pub(crate) fn minus(&self, target_answer: &Self) -> Self { // todo test
         let self_prov: HashSet<_> = HashSet::from_iter(self.provenance.clone());
         let other_prov: HashSet<_> = HashSet::from_iter(target_answer.provenance.clone());
         let new_provenance: Vec<String> = self_prov.difference(&other_prov).cloned().collect_vec();
@@ -104,7 +104,7 @@ impl Registry {
         }
     }
 
-    pub(crate) fn union(&self, target_answer: &Self) -> Self {
+    pub(crate) fn union(&self, target_answer: &Self) -> Self { // todo test
         Registry {
             squares: self
                 .squares
@@ -122,7 +122,7 @@ impl Registry {
         }
     }
 
-    pub(crate) fn add(&self, additional_squares: Vec<Ortho>) -> Self {
+    pub(crate) fn add(&self, additional_squares: Vec<Ortho>) -> Self { // todo test
         Registry {
             squares: self
                 .squares
@@ -135,7 +135,7 @@ impl Registry {
         }
     }
 
-    pub(crate) fn from_book(book: &Book) -> Self {
+    pub(crate) fn from_book(book: &Book) -> Self { // todo test
         Registry {
             squares: HashSet::default(),
             pairs: book.make_pairs(),
@@ -144,7 +144,7 @@ impl Registry {
         }
     }
 
-    pub(crate) fn contains(&self, item: &Item) -> bool {
+    pub(crate) fn contains(&self, item: &Item) -> bool { // todo test
         match item {
             Pair(l) => self.pairs.contains(l),
             Square(s) => self.squares.contains(s),
@@ -159,14 +159,14 @@ impl Registry {
             .collect_vec()
     }
 
-    pub(crate) fn contains_line_with(&self, f: &str, s: &str) -> bool {
+    pub(crate) fn contains_line_with(&self, f: &str, s: &str) -> bool { // todo test
         self.pairs.contains(&Line {
             first: f.to_owned(),
             second: s.to_owned(),
         })
     }
 
-    pub(crate) fn items(&self) -> Vec<Item> {
+    pub(crate) fn items(&self) -> Vec<Item> { // todo test
         self.squares
             .iter()
             .map(Square)
@@ -174,7 +174,7 @@ impl Registry {
             .collect()
     }
 
-    pub fn squares_with_origin(&self, origin: &str) -> Vec<Item> {
+    pub fn squares_with_origin(&self, origin: &str) -> Vec<Item> { // todo test
         self.squares
             .iter()
             .filter(|o| o.origin() == origin)
