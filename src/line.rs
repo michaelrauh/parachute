@@ -5,8 +5,8 @@ pub struct Line {
     pub second: String,
 }
 
-impl Into<(String, String)> for Line {
-    fn into(self) -> (String, String) {
-        (self.first, self.second)
+impl From<Line> for (String, String) {
+    fn from(val: Line) -> Self {
+        (val.first, val.second)
     }
 }

@@ -1,9 +1,9 @@
-use std::{collections::HashSet, hash::Hash};
+use std::collections::HashSet;
 
 use memoize::memoize;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 pub struct Square {
     contents: Vec<String>,
     shape: Vec<usize>,
@@ -21,11 +21,7 @@ impl Square {
 #[memoize]
 fn diagonal_template(shape: Vec<usize>) -> Vec<HashSet<usize>> {
     let index_array = index_array(&shape);
-    let max_distance = index_array
-        .last()
-        .unwrap()
-        .iter()
-        .fold(1, |total, current| total * current);
+    let max_distance = index_array.last().unwrap().iter().product::<usize>();
     let mut ans = vec![HashSet::new(); max_distance + 1];
 
     for (i, index) in index_array.iter().enumerate() {
@@ -90,7 +86,7 @@ impl PartialEq for Square {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
@@ -99,7 +95,6 @@ mod tests {
 
     #[test]
     fn things_are_not_equal_if_they_are_different_sizes_even_if_packed_data_is_the_same_length() {
-
         todo!()
     }
 

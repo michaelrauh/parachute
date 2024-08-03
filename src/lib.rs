@@ -9,11 +9,11 @@ use s3_helper::Bucket;
 use crate::registry::Registry;
 
 mod book_helper;
-mod hit_counter;
 pub mod color;
 pub mod discontinuity_detector;
 mod file_helper;
 mod folder;
+mod hit_counter;
 pub mod item;
 pub mod line;
 mod ortho;
@@ -77,50 +77,48 @@ pub async fn process(endpoint: String, location: String) {
 
             bucket.save_answer(ans).await;
             bucket.delete_chunk(registry).await;
+        } else if let Some((source_answer, target_answer)) =
+            bucket.checkout_largest_and_smallest_answer().await
+        {
+            let start = Instant::now();
+            let new_answer = merge_process(&source_answer, &target_answer);
+            let duration = start.elapsed();
+
+            println!("Time elapsed in merge is: {:?}", duration);
+
+            let mut ascii_table = AsciiTable::default();
+
+            ascii_table
+                .column(0)
+                .set_header(source_answer.provenance.len().to_string())
+                .set_align(Align::Left);
+            ascii_table
+                .column(1)
+                .set_header(target_answer.provenance.len().to_string())
+                .set_align(Align::Left);
+            ascii_table
+                .column(2)
+                .set_header(new_answer.provenance.len().to_string())
+                .set_align(Align::Left);
+
+            let data: Vec<Vec<usize>> = vec![
+                vec![
+                    source_answer.number_of_pairs(),
+                    target_answer.number_of_pairs(),
+                    new_answer.number_of_pairs(),
+                ],
+                vec![
+                    source_answer.number_of_squares(),
+                    target_answer.number_of_squares(),
+                    new_answer.number_of_squares(),
+                ],
+            ];
+            ascii_table.print(data);
+            bucket.save_answer(new_answer).await;
+            bucket.delete_answer(source_answer).await;
+            bucket.delete_answer(target_answer).await;
         } else {
-            if let Some((source_answer, target_answer)) =
-                bucket.checkout_largest_and_smallest_answer().await
-            {
-                let start = Instant::now();
-                let new_answer = merge_process(&source_answer, &target_answer);
-                let duration = start.elapsed();
-
-                println!("Time elapsed in merge is: {:?}", duration);
-
-                let mut ascii_table = AsciiTable::default();
-
-                ascii_table
-                    .column(0)
-                    .set_header(source_answer.provenance.len().to_string())
-                    .set_align(Align::Left);
-                ascii_table
-                    .column(1)
-                    .set_header(target_answer.provenance.len().to_string())
-                    .set_align(Align::Left);
-                ascii_table
-                    .column(2)
-                    .set_header(new_answer.provenance.len().to_string())
-                    .set_align(Align::Left);
-
-                let data: Vec<Vec<usize>> = vec![
-                    vec![
-                        source_answer.number_of_pairs(),
-                        target_answer.number_of_pairs(),
-                        new_answer.number_of_pairs(),
-                    ],
-                    vec![
-                        source_answer.number_of_squares(),
-                        target_answer.number_of_squares(),
-                        new_answer.number_of_squares(),
-                    ],
-                ];
-                ascii_table.print(data);
-                bucket.save_answer(new_answer).await;
-                bucket.delete_answer(source_answer).await;
-                bucket.delete_answer(target_answer).await;
-            } else {
-                break;
-            }
+            break;
         }
     }
 }

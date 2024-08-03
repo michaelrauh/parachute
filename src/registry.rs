@@ -1,10 +1,8 @@
+use crate::registry::Item::Pair;
+use crate::registry::Item::Square;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use crate::registry::Item::Square;
-use crate::registry::Item::Pair;
-
-
 
 use crate::{book_helper::Book, item::Item, line::Line, ortho::Ortho};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -54,21 +52,30 @@ impl Registry {
         // center: a-b
         // right: other_square.origin = b
 
-        // if the item is a square, you have a square in the center which is not useful. 
+        // if the item is a square, you have a square in the center which is not useful.
         // return an empty for now but consider unbundling item out and managing these calls separately
         // to avoid this situation
         // todo add hop and contents
         // todo handle spline
         match item {
-            Item::Pair(l) => self.lines_starting_with(&l.first).iter().chain(self.squares_with_origin(&l.first).iter()).cloned().collect(),
+            Item::Pair(l) => self
+                .lines_starting_with(&l.first)
+                .iter()
+                .chain(self.squares_with_origin(&l.first).iter())
+                .cloned()
+                .collect(),
             Item::Square(_) => vec![],
         }
-        
     }
 
     pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
         match item {
-            Item::Pair(l) => self.lines_starting_with(&l.second).iter().chain(self.squares_with_origin(&l.second).iter()).cloned().collect(),
+            Item::Pair(l) => self
+                .lines_starting_with(&l.second)
+                .iter()
+                .chain(self.squares_with_origin(&l.second).iter())
+                .cloned()
+                .collect(),
             Item::Square(_) => vec![],
         }
     }
@@ -148,22 +155,30 @@ impl Registry {
         self.pairs
             .iter()
             .filter(|l| &l.first == first)
-            .map(|l| Pair(l))
+            .map(Pair)
             .collect_vec()
     }
 
-    pub(crate) fn contains_line_with(&self, f: &String, s: &String) -> bool {
+    pub(crate) fn contains_line_with(&self, f: &str, s: &str) -> bool {
         self.pairs.contains(&Line {
-            first: f.clone(),
-            second: s.clone(),
+            first: f.to_owned(),
+            second: s.to_owned(),
         })
     }
-    
+
     pub(crate) fn items(&self) -> Vec<Item> {
-        self.squares.iter().map(|s| Square(s)).chain(self.pairs.iter().map(|p| Pair(&p))).collect()
+        self.squares
+            .iter()
+            .map(Square)
+            .chain(self.pairs.iter().map(Pair))
+            .collect()
     }
-    
+
     pub fn squares_with_origin(&self, origin: &str) -> Vec<Item> {
-        self.squares.iter().filter(|o| o.origin() == origin).map(|o| Item::Square(o)).collect()
+        self.squares
+            .iter()
+            .filter(|o| o.origin() == origin)
+            .map(Item::Square)
+            .collect()
     }
 }
