@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use aws_sdk_s3::types::Bucket;
 use itertools::Itertools;
 use memoize::memoize;
 use serde::{Deserialize, Serialize};
@@ -251,16 +252,34 @@ impl PartialEq for Ortho {
 }
 
 impl std::hash::Hash for Ortho {
-    // todo fix - this should be rotation independent
-    // todo test
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.contents.hash(state);
-        self.shape.hash(state);
+        let lhs_shape = self.shape.iter().collect::<HashSet<_>>();
+        let template = diagonal_template(self.shape.clone());
+        for template_bucket in template.clone() {
+            let mut left_bucket = HashSet::new();
+
+            for location in template_bucket {
+                left_bucket.insert(self.contents[location].clone());
+            }
+        }
+        for bucket in template {
+            let mut sorted = bucket.iter().collect_vec();
+            sorted.sort();
+
+            sorted.hash(state);
+        }
+
+        let mut sorted = lhs_shape.iter().collect_vec();
+        sorted.sort();
+
+        sorted.hash(state);
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}};
 
     use crate::ortho::{index_array, Ortho};
 
@@ -431,5 +450,29 @@ mod tests {
         assert_ne!(abcd, abgd);
         assert_ne!(abcd, abcg);
         
+    }
+
+    #[test]
+    fn hash_is_rotation_independent() {
+        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
+        let acbd = Ortho::new("a".to_owned(), "c".to_owned(), "b".to_owned(), "d".to_owned());
+
+        let mut lhs_hasher = DefaultHasher::new();
+        abcd.hash(&mut lhs_hasher);
+        let mut rhs_hasher = DefaultHasher::new();
+        acbd.hash(&mut rhs_hasher);
+        assert_eq!(lhs_hasher.finish(), rhs_hasher.finish());
+    }
+
+    #[test]
+    fn hashes_detect_differences() {
+        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
+        let gbcd = Ortho::new("g".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
+
+        let mut lhs_hasher = DefaultHasher::new();
+        abcd.hash(&mut lhs_hasher);
+        let mut rhs_hasher = DefaultHasher::new();
+        gbcd.hash(&mut rhs_hasher);
+        assert_eq!(lhs_hasher.finish(), rhs_hasher.finish());
     }
 }
