@@ -13,6 +13,31 @@ pub fn single_process(registry: &Registry) -> Registry {
     fold_up_by_origin_repeatedly(r, new_squares)
 }
 
+// merge process assumes that registries are consistent - they have started with single process and then run merge process. This could be required by types.
+pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
+    let detector = DiscontinuityDetector::new(source_answer, target_answer);
+    let both = source_answer.union(target_answer);
+    let mut check_back = vec![];
+    let mut hit_counter = HitCounter::default();
+    for line in both.items().iter() {
+        let lhss = both.left_of(line);
+        let rhss = both.right_of(line);
+
+        for (lhs, rhs) in iproduct!(lhss, rhss) {
+            hit_counter.swing();
+            if detector.discontinuity(&lhs, line, &rhs) {
+                hit_counter.hit();
+                check_back.push((lhs, line.clone(), rhs));
+            }
+        }
+    }
+    dbg!(hit_counter.ratio());
+
+    let additional_squares = find_additional_squares(&both, check_back);
+    let r = both.add(additional_squares.clone());
+    fold_up_by_origin_repeatedly(r, additional_squares)
+}
+
 fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
     std::iter::successors(
         Some((r, new_squares)),
@@ -53,30 +78,6 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
         .collect()
 }
 
-pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
-    // todo test
-    let detector = DiscontinuityDetector::new(source_answer, target_answer);
-    let both = source_answer.union(target_answer);
-    let mut check_back = vec![];
-    let mut hit_counter = HitCounter::default();
-    for line in both.items().iter() {
-        let lhss = both.left_of(line);
-        let rhss = both.right_of(line);
-
-        for (lhs, rhs) in iproduct!(lhss, rhss) {
-            hit_counter.swing();
-            if detector.discontinuity(&lhs, line, &rhs) {
-                hit_counter.hit();
-                check_back.push((lhs, line.clone(), rhs));
-            }
-        }
-    }
-    dbg!(hit_counter.ratio());
-
-    let additional_squares = find_additional_squares(&both, check_back);
-    both.add(additional_squares)
-}
-
 fn find_additional_squares(
     combined_book: &Registry,
     check_back: Vec<(Item, Item, Item)>,
@@ -97,9 +98,6 @@ fn find_additional_squares(
         })
         .collect()
 }
-
-// todo make sure it isnt necessary to separate out why this was called. There should be separate methods or types for by origin, hop, contents
-// tell don't ask - look at the ifs and push them down
 
 fn handle_connection(registry: &Registry, l: &&Ortho, r: &&Ortho) -> Vec<Ortho> {
     // left: ortho with origin (for now) connected to the other (origin = a)
@@ -235,7 +233,7 @@ fn ffbb(book: &Registry) -> Vec<Ortho> {
 mod tests {
     use std::collections::HashSet;
 
-    use crate::{ortho::Ortho, registry::Registry};
+    use crate::{folder::merge_process, ortho::Ortho, registry::Registry};
 
     use super::single_process;
 
@@ -288,6 +286,97 @@ mod tests {
                 ("c".to_string(), "g".to_string()),
             ],
         );
+        assert!(res.squares.contains(&expected_ortho))
+    }
+
+    #[test]
+    fn test_merge_process_discovers_squares_from_lines() {
+        let left_registry = single_process(&Registry::from_text("a b. c d.", "first.txt", 1));
+        let right_registry = single_process(&Registry::from_text("a c. b d.", "second.txt", 2));
+        let res = merge_process(&left_registry, &right_registry);
+
+        assert_eq!(
+            res.squares,
+            vec![Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string()
+            )]
+            .into_iter()
+            .collect::<HashSet<_>>()
+        )
+    }
+
+    #[test]
+    fn test_merge_process_discovers_squares_from_squares() {
+        let left_registry = single_process(&Registry::from_text(
+            "a b. c d. a c. b d. a e. b f. c g. d h.",
+            "first.txt",
+            1,
+        ));
+        let right_registry =
+            single_process(&Registry::from_text("e f. g h. e g. f h.", "second.txt", 2));
+
+        let res = merge_process(&left_registry, &right_registry);
+        let expected_ortho = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        )
+        .zip_up(
+            &Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+            &[
+                ("b".to_string(), "f".to_string()),
+                ("c".to_string(), "g".to_string()),
+            ],
+        );
+
+        assert!(res.squares.contains(&expected_ortho))
+    }
+
+    #[test]
+    fn test_merge_process_sifts_down_by_origin_for_up_dimension() {
+        // a b  e f
+        // c d  g h
+
+        let left_registry = single_process(&Registry::from_text(
+            "a b. a c. b d. a e. b f. c g. d h.",
+            "first.txt",
+            1,
+        ));
+        let right_registry = single_process(&Registry::from_text(
+            "c d. e f. g h. e g. f h.",
+            "second.txt",
+            2,
+        ));
+
+        let res = merge_process(&left_registry, &right_registry);
+        let expected_ortho = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        )
+        .zip_up(
+            &Ortho::new(
+                "e".to_string(),
+                "f".to_string(),
+                "g".to_string(),
+                "h".to_string(),
+            ),
+            &[
+                ("b".to_string(), "f".to_string()),
+                ("c".to_string(), "g".to_string()),
+            ],
+        );
+
         assert!(res.squares.contains(&expected_ortho))
     }
 }
