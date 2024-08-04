@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
+use log_derive::logfn_inputs;
 use memoize::memoize;
 use serde::{Deserialize, Serialize};
 
@@ -46,12 +47,19 @@ impl Ortho {
     pub(crate) fn connection_works(
         // todo test
         &self,
-        other_connection: String,
+        self_word: String,
         registry: &crate::registry::Registry,
         correspondence: &[(String, String)],
-        r: &&Ortho,
+        other_ortho: &&Ortho,
     ) -> bool {
-        todo!()
+        let correlated_right = self.apply_correspondence(correspondence, &other_ortho); // todo pass in correlated right to save work
+        let pos = self
+            .contents
+            .iter()
+            .find_position(|x| x == &&self_word)
+            .unwrap()
+            .0;
+        registry.forward(self_word).contains(&correlated_right[pos])
     }
 
     pub(crate) fn zip_up(&self, r: &Ortho, correspondence: &[(String, String)]) -> Ortho {

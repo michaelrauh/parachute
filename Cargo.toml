@@ -17,6 +17,8 @@ itertools = "0.12.1"
 ascii_table = "4.0.3"
 memoize = "0.4.2"
 ustr = "1.0.0"
+log-derive = "0.4.1"
+log = "0.4.22"
 
 [profile.release]
 debug = true

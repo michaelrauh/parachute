@@ -134,9 +134,9 @@ fn all_other_connections_work(
     r: &Ortho,
     correspondence: &[(String, String)],
 ) -> bool {
-    l.contents().iter().all(|other_connection| {
-        l.connection_works(other_connection.to_string(), registry, correspondence, &r)
-    })
+    l.contents()
+        .iter()
+        .all(|left_word| l.connection_works(left_word.to_string(), registry, correspondence, &r))
 }
 
 fn find_potential_correspondences(
