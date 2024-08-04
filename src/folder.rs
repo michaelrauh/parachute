@@ -7,7 +7,7 @@ use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::{iproduct, Itertools};
 
-pub fn single_process(registry: &Registry) -> Registry { // todo test
+pub fn single_process(registry: &Registry) -> Registry {
     let new_squares = ffbb(registry);
     let r = registry.add(new_squares.clone());
     fold_up_by_origin_repeatedly(r, new_squares)
@@ -34,21 +34,27 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
     new_squares
         .into_iter()
         .flat_map(|ortho| {
-            r.squares_with_origin(ortho.origin())
-                .into_iter()
-                .filter_map(move |other| {
-                    if let crate::item::Item::Square(s) = other {
-                        Some(handle_connection(r, &&ortho, &s))
-                    } else {
-                        None
-                    }
+            r.forward(ortho.origin().to_string())
+                .iter()
+                .flat_map(|second| {
+                    r.squares_with_origin(second)
+                        .into_iter()
+                        .filter_map(|other| {
+                            if let crate::item::Item::Square(right_ortho) = other {
+                                Some(handle_connection(r, &&ortho, &right_ortho))
+                            } else {
+                                None
+                            }
+                        })
+                        .flatten()
                 })
-                .flatten()
+                .collect::<Vec<_>>()
         })
         .collect()
 }
 
-pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry { // todo test
+pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
+    // todo test
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
@@ -223,4 +229,65 @@ fn ffbb(book: &Registry) -> Vec<Ortho> {
         }
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use crate::{ortho::Ortho, registry::Registry};
+
+    use super::single_process;
+
+    #[test]
+    fn test_single_process_discovers_squares() {
+        let r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
+        let res = single_process(&r);
+
+        assert_eq!(
+            res.squares,
+            vec![Ortho::new(
+                "a".to_string(),
+                "b".to_string(),
+                "c".to_string(),
+                "d".to_string()
+            )]
+            .into_iter()
+            .collect::<HashSet<_>>()
+        )
+    }
+
+    #[test]
+    fn test_single_process_sifts_down_by_origin_for_up_dimension() {
+        // a b  e f
+        // c d  g h
+
+        let r = Registry::from_text(
+            "a b. c d. a c. b d. e f. g h. e g. f h. a e. b f. c g. d h.",
+            "first.txt",
+            1,
+        );
+        let res = single_process(&r);
+
+        let abcd = Ortho::new(
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        );
+        let efgh = Ortho::new(
+            "e".to_string(),
+            "f".to_string(),
+            "g".to_string(),
+            "h".to_string(),
+        );
+        let expected_ortho = abcd.zip_up(
+            &efgh,
+            &[
+                ("b".to_string(), "f".to_string()),
+                ("c".to_string(), "g".to_string()),
+            ],
+        );
+        assert!(res.squares.contains(&expected_ortho))
+    }
 }

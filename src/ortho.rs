@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use aws_sdk_s3::types::Bucket;
 use itertools::Itertools;
 use memoize::memoize;
 use serde::{Deserialize, Serialize};
@@ -45,6 +44,7 @@ impl Ortho {
     }
 
     pub(crate) fn connection_works(
+        // todo test
         &self,
         other_connection: String,
         registry: &crate::registry::Registry,
@@ -279,7 +279,10 @@ impl std::hash::Hash for Ortho {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}};
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
 
     use crate::ortho::{index_array, Ortho};
 
@@ -393,25 +396,63 @@ mod tests {
         //                     m n
         // e f                 o p
         // g h
-        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let efgh = Ortho::new("e".to_owned(), "f".to_owned(), "g".to_owned(), "h".to_owned());
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let efgh = Ortho::new(
+            "e".to_owned(),
+            "f".to_owned(),
+            "g".to_owned(),
+            "h".to_owned(),
+        );
 
-        let lhs = abcd.zip_up(&efgh, &[("b".to_owned(), "f".to_owned()), ("c".to_owned(), "g".to_owned())]);
+        let lhs = abcd.zip_up(
+            &efgh,
+            &[
+                ("b".to_owned(), "f".to_owned()),
+                ("c".to_owned(), "g".to_owned()),
+            ],
+        );
 
-        let ijkl = Ortho::new("i".to_owned(), "j".to_owned(), "k".to_owned(), "l".to_owned());
-        let klmn = Ortho::new("k".to_owned(), "l".to_owned(), "m".to_owned(), "n".to_owned());
-        let mnop = Ortho::new("m".to_owned(), "n".to_owned(), "o".to_owned(), "p".to_owned());
+        let ijkl = Ortho::new(
+            "i".to_owned(),
+            "j".to_owned(),
+            "k".to_owned(),
+            "l".to_owned(),
+        );
+        let klmn = Ortho::new(
+            "k".to_owned(),
+            "l".to_owned(),
+            "m".to_owned(),
+            "n".to_owned(),
+        );
+        let mnop = Ortho::new(
+            "m".to_owned(),
+            "n".to_owned(),
+            "o".to_owned(),
+            "p".to_owned(),
+        );
 
         // i j
         // k l
-        // 
+        //
         // k l
         // m n
-        let ijklmn = ijkl.zip_over(&klmn, &[("k".to_owned(), "m".to_owned()), ("j".to_owned(), "l".to_owned())], "k".to_owned());
+        let ijklmn = ijkl.zip_over(
+            &klmn,
+            &[
+                ("k".to_owned(), "m".to_owned()),
+                ("j".to_owned(), "l".to_owned()),
+            ],
+            "k".to_owned(),
+        );
 
         // k l
         // m n
-        // 
+        //
         // m n
         // o p
 
@@ -422,40 +463,98 @@ mod tests {
         // k l
         // m n
         // o p
-        let klmnop = klmn.zip_over(&mnop, &[("m".to_owned(), "o".to_owned()), ("l".to_owned(), "n".to_owned())], "m".to_owned());
-        let rhs = ijklmn.zip_over(&klmnop, &[("k".to_owned(), "m".to_owned()), ("j".to_owned(), "l".to_owned())], "k".to_owned());
+        let klmnop = klmn.zip_over(
+            &mnop,
+            &[
+                ("m".to_owned(), "o".to_owned()),
+                ("l".to_owned(), "n".to_owned()),
+            ],
+            "m".to_owned(),
+        );
+        let rhs = ijklmn.zip_over(
+            &klmnop,
+            &[
+                ("k".to_owned(), "m".to_owned()),
+                ("j".to_owned(), "l".to_owned()),
+            ],
+            "k".to_owned(),
+        );
 
         assert_ne!(lhs, rhs)
     }
 
     #[test]
     fn things_can_be_equal_even_if_the_buckets_are_scrambled() {
-        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let acbd = Ortho::new("a".to_owned(), "c".to_owned(), "b".to_owned(), "d".to_owned());
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let acbd = Ortho::new(
+            "a".to_owned(),
+            "c".to_owned(),
+            "b".to_owned(),
+            "d".to_owned(),
+        );
 
         assert_eq!(abcd, acbd)
     }
 
     #[test]
     fn things_can_be_unequal_when_they_are_different() {
-        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let gbcd = Ortho::new("g".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let agcd = Ortho::new("a".to_owned(), "g".to_owned(), "c".to_owned(), "d".to_owned());
-        let abgd = Ortho::new("a".to_owned(), "b".to_owned(), "g".to_owned(), "d".to_owned());
-        let abcg = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "g".to_owned());
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let gbcd = Ortho::new(
+            "g".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let agcd = Ortho::new(
+            "a".to_owned(),
+            "g".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let abgd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "g".to_owned(),
+            "d".to_owned(),
+        );
+        let abcg = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "g".to_owned(),
+        );
 
         assert_eq!(abcd, abcd);
         assert_ne!(abcd, gbcd);
         assert_ne!(abcd, agcd);
         assert_ne!(abcd, abgd);
         assert_ne!(abcd, abcg);
-        
     }
 
     #[test]
     fn hash_is_rotation_independent() {
-        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let acbd = Ortho::new("a".to_owned(), "c".to_owned(), "b".to_owned(), "d".to_owned());
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let acbd = Ortho::new(
+            "a".to_owned(),
+            "c".to_owned(),
+            "b".to_owned(),
+            "d".to_owned(),
+        );
 
         let mut lhs_hasher = DefaultHasher::new();
         abcd.hash(&mut lhs_hasher);
@@ -466,8 +565,18 @@ mod tests {
 
     #[test]
     fn hashes_detect_differences() {
-        let abcd = Ortho::new("a".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
-        let gbcd = Ortho::new("g".to_owned(), "b".to_owned(), "c".to_owned(), "d".to_owned());
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let gbcd = Ortho::new(
+            "g".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
 
         let mut lhs_hasher = DefaultHasher::new();
         abcd.hash(&mut lhs_hasher);
