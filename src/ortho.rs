@@ -45,14 +45,13 @@ impl Ortho {
     }
 
     pub(crate) fn connection_works(
-        // todo test
         &self,
         self_word: String,
         registry: &crate::registry::Registry,
         correspondence: &[(String, String)],
         other_ortho: &&Ortho,
     ) -> bool {
-        let correlated_right = self.apply_correspondence(correspondence, &other_ortho); // todo pass in correlated right to save work
+        let correlated_right = self.apply_correspondence(correspondence, &other_ortho);
         let pos = self
             .contents
             .iter()
