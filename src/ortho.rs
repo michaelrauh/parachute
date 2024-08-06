@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
-use log_derive::logfn_inputs;
 use memoize::memoize;
 use serde::{Deserialize, Serialize};
 
@@ -121,6 +120,7 @@ impl Ortho {
         target
     }
 
+    #[allow(dead_code)]
     fn zip_over(&self, r: &Ortho, corr: &[(String, String)], dir: String) -> Ortho {
         let new_r = self.apply_correspondence(corr, r);
         let dir_pos = self.get_one_hot(&dir);
@@ -291,7 +291,7 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::ortho::{index_array, Ortho};
+    use crate::ortho::Ortho;
 
     #[test]
     fn test_hop() {

@@ -70,6 +70,7 @@ pub async fn process(endpoint: String, location: String) {
                 .set_header("single")
                 .set_align(Align::Left);
 
+                // todo put out lines, then each size of ortho. For this case, just use dimensionality
             let data: Vec<Vec<usize>> =
                 vec![vec![ans.number_of_pairs()], vec![ans.number_of_squares()]];
             ascii_table.print(data);

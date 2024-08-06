@@ -63,7 +63,7 @@ impl Bucket {
     }
 
     pub async fn dump_results(&self) {
-        dbg!(self.read_largest_chunk().await.unwrap().squares);
+        // dbg!(self.read_largest_chunk().await.unwrap().squares);
     }
 
     pub async fn write_chunk(&self, book_chunk: Registry) {
@@ -99,7 +99,7 @@ impl Bucket {
             None
         }
     }
-
+    #[allow(dead_code)]
     pub async fn read_largest_chunk(&self) -> Option<Registry> {
         let f = self.get_largest_file_name("answers").await;
 

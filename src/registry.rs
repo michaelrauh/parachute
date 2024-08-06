@@ -13,6 +13,7 @@ pub struct Registry {
     pub provenance: Vec<String>,
 }
 impl Registry {
+    #[allow(dead_code)]
     pub(crate) fn from_text(text: &str, filename: &str, number: usize) -> Self {
         Self::from_book(&Book::book_from_text(filename, text, number))
     }
