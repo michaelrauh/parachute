@@ -1,20 +1,14 @@
-use std::{fs::read_to_string, time::Instant};
+use std::fs::read_to_string;
 
 use charming::{
-    component::{Axis, Grid, Legend},
     element::{
-        AxisPointer, AxisPointerType, AxisType, Emphasis, EmphasisFocus, LineStyle, LineStyleType,
-        MarkLine, MarkLineData, MarkLineVariant, Tooltip, Trigger,
+        Emphasis, EmphasisFocus,
     },
-    series::{bar, Bar, Sankey, Series},
-    Chart, HtmlRenderer,
+    series::Sankey,
+    Chart,
 };
 
 use book_helper::Book;
-use charming::{
-    element::ItemStyle,
-    series::{Pie, PieRoseType},
-};
 use file_helper::read_file;
 use folder::{merge_process, single_process};
 use itertools::Itertools;
@@ -74,28 +68,43 @@ pub async fn delete(endpoint: String, location: String) {
 #[tokio::main]
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location).await;
-    let mut all_answers = vec![]; // this should not be saved in its entirety long term. Ideally a report would be saved
-    let mut answer_connections: Vec<(String, String, String)> = vec![];
+    let mut names = vec![];
+    let mut links = vec![];
     loop {
-        dbg!();
         if let Some(registry) = bucket.checkout_smallest_chunk().await {
             let ans: Registry = single_process(&registry);
-            all_answers.push(ans.clone());
 
-            bucket.save_answer(ans).await;
+            bucket.save_answer(ans.clone()).await;
             bucket.delete_chunk(registry).await;
-            display_report(&all_answers, &answer_connections);
+
+            let count_by_shape = ans.count_by_shape();
+            let new_links = count_by_shape.iter().map(|(shape, count)| {
+                let mut shape_and_chunk = ans.name.clone();
+                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
+
+                (ans.name.clone(), shape_and_chunk, *count as i32)
+            });
+
+            for link in new_links {
+                links.push(link.clone());
+
+                if !names.contains(&link.0) {
+                    names.push(link.0);
+                }
+                
+                if !names.contains(&link.1) {
+                    names.push(link.1);
+                }
+            }
+
+            dbg!(&names, &links);
+            display_report(&names, &links);
         } else if let Some((source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             let new_answer = merge_process(&source_answer, &target_answer);
-            all_answers.push(new_answer.clone());
-            answer_connections.push((
-                source_answer.name.clone(),
-                target_answer.name.clone(),
-                new_answer.name.clone(),
-            ));
-            display_report(&all_answers, &answer_connections);
+            
+            display_report(&names, &links);
             bucket.save_answer(new_answer).await;
             bucket.delete_answer(source_answer).await;
             bucket.delete_answer(target_answer).await;
@@ -105,54 +114,13 @@ pub async fn process(endpoint: String, location: String) {
     }
 }
 
-fn display_report(all_answers: &Vec<Registry>, answer_connections: &Vec<(String, String, String)>) {
-    dbg!("updating report");
-    let all_names = all_answers.iter().map(|r| r.name.clone()).collect_vec();
-    let stream_names = all_answers
-        .iter()
-        .flat_map(|r| {
-            let name = r.name.clone();
-            r.count_by_shape()
-                .iter()
-                .map(|(shape, _)| {
-                    let mut to_add = name.clone();
-                    to_add.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-                    to_add
-                })
-                .collect_vec()
-        })
-        .chain(all_names)
-        .collect_vec();
-
-    let single_links = all_answers
-        .iter()
-        .flat_map(|r| {
-            r.clone()
-                .count_by_shape()
-                .clone()
-                .into_iter()
-                .map(|(shape, count)| {
-                    let mut to_add = r.name.clone();
-                    to_add.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-                    let link = (r.name.clone(), to_add.clone(), count as i32);
-                    link
-                })
-                .collect_vec()
-        })
-        .collect_vec();
-
-    // todo come back for multiple links (combine)
-    dbg!(&stream_names);
-    dbg!(&single_links);
+fn display_report(names: &Vec<String>, links: &Vec<(String, String, i32)>) {
     let chart = Chart::new().series(
         Sankey::new()
             .emphasis(Emphasis::new().focus(EmphasisFocus::Adjacency))
-            .data(stream_names)
-            .links(single_links),
+            .data(names.to_owned())
+            .links(links.to_owned()),
     );
     let mut renderer = charming::ImageRenderer::new(1000, 800);
     renderer.save(&chart, "sankey.svg").unwrap();
-
-    // let mut renderer = HtmlRenderer::new("my charts", 1000, 800);
-    // renderer.save(&chart, "chart.html").unwrap();
 }
