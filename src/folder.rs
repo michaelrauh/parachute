@@ -8,6 +8,7 @@ use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registr
 use itertools::{iproduct, Itertools};
 
 pub fn single_process(registry: &Registry) -> Registry {
+    dbg!("FFBB");
     let new_squares = ffbb(registry);
     let r = registry.add(new_squares.clone());
     fold_up_by_origin_repeatedly(r, new_squares)
@@ -39,6 +40,7 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
 }
 
 fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
+    dbg!("sifting");
     std::iter::successors(
         Some((r, new_squares)),
         |(current_registry, current_squares)| {
@@ -56,6 +58,7 @@ fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registr
 }
 
 fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
+    dbg!("up", &new_squares.len());
     new_squares
         .into_iter()
         .flat_map(|ortho| {

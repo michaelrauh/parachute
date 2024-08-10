@@ -72,8 +72,8 @@ pub async fn process(endpoint: String, location: String) {
     let mut links = vec![];
     loop {
         if let Some(registry) = bucket.checkout_smallest_chunk().await {
-            let single_process = single_process(&registry);
-            let ans: Registry = single_process;
+            dbg!(&registry.name);
+            let ans = single_process(&registry);
 
             bucket.save_answer(ans.clone()).await;
             bucket.delete_chunk(registry).await;
@@ -102,6 +102,7 @@ pub async fn process(endpoint: String, location: String) {
         } else if let Some((source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
+            dbg!(&source_answer.name, &target_answer.name);
             let new_answer = merge_process(&source_answer, &target_answer);
             let mut new_name = new_answer.name.clone();
             new_name.push_str("_merged");
