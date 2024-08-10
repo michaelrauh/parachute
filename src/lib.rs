@@ -72,7 +72,8 @@ pub async fn process(endpoint: String, location: String) {
     let mut links = vec![];
     loop {
         if let Some(registry) = bucket.checkout_smallest_chunk().await {
-            let ans: Registry = single_process(&registry);
+            let single_process = single_process(&registry);
+            let ans: Registry = single_process;
 
             bucket.save_answer(ans.clone()).await;
             bucket.delete_chunk(registry).await;
@@ -97,17 +98,57 @@ pub async fn process(endpoint: String, location: String) {
                 }
             }
 
-            dbg!(&names, &links);
             display_report(&names, &links);
         } else if let Some((source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             let new_answer = merge_process(&source_answer, &target_answer);
+            let mut new_name = new_answer.name.clone();
+            new_name.push_str("_merged");
             
+            bucket.save_answer(new_answer.clone()).await;
+            bucket.delete_answer(source_answer.clone()).await;
+            bucket.delete_answer(target_answer.clone()).await;
+
+            // from left to new
+            let count_by_shape = source_answer.count_by_shape();
+            let new_left_links = count_by_shape.iter().map(|(shape, count)| {
+                let mut shape_and_chunk = source_answer.name.clone();
+                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
+
+                (shape_and_chunk.clone(), new_name.clone(), *count as i32)
+            });
+
+            // from right to new
+            let count_by_shape = target_answer.count_by_shape();
+            let new_right_links = count_by_shape.iter().map(|(shape, count)| {
+                let mut shape_and_chunk = target_answer.name.clone();
+                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
+
+                (shape_and_chunk.clone(), new_name.clone(), *count as i32)
+            });
+
+            // from new to streams
+            let count_by_shape = new_answer.count_by_shape();
+            let new_links = count_by_shape.iter().map(|(shape, count)| {
+                let mut shape_and_chunk = new_name.clone();
+                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
+
+                (new_name.clone(), shape_and_chunk.clone(), *count as i32)
+            });
+
+            for link in new_left_links.chain(new_right_links).chain(new_links) {
+                links.push(link.clone());
+
+                if !names.contains(&link.0) {
+                    names.push(link.0);
+                }
+                
+                if !names.contains(&link.1) {
+                    names.push(link.1);
+                }
+            }
             display_report(&names, &links);
-            bucket.save_answer(new_answer).await;
-            bucket.delete_answer(source_answer).await;
-            bucket.delete_answer(target_answer).await;
         } else {
             break;
         }
@@ -115,6 +156,10 @@ pub async fn process(endpoint: String, location: String) {
 }
 
 fn display_report(names: &Vec<String>, links: &Vec<(String, String, i32)>) {
+    dbg!(&names, &links);
+    if links.len() == 0 {
+        return
+    }
     let chart = Chart::new().series(
         Sankey::new()
             .emphasis(Emphasis::new().focus(EmphasisFocus::Adjacency))

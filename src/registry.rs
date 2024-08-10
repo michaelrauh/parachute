@@ -30,14 +30,6 @@ impl Registry {
         coll.into_iter().collect_vec()
     }
 
-    pub(crate) fn number_of_pairs(&self) -> usize {
-        self.pairs.len()
-    }
-
-    pub(crate) fn number_of_squares(&self) -> usize {
-        self.squares.len()
-    }
-
     pub fn forward(&self, from: String) -> HashSet<String> {
         self.pairs
             .iter()

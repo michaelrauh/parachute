@@ -1,7 +1,11 @@
 CHAPTER MISSING FIRST
 
-c d. a c. b d.
+a b. c d. a c. b d.
 
 CHAPTER MISSING FIRST II
 
-a b.
+e f. g h. e g. f h.
+
+CHAPTER MISSING FIRST III
+
+a e. b f. c g. d h.
