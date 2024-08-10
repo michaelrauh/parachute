@@ -2,6 +2,7 @@ use crate::registry::Item::Pair;
 use crate::registry::Item::Square;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::{book_helper::Book, item::Item, line::Line, ortho::Ortho};
@@ -16,6 +17,17 @@ impl Registry {
     #[allow(dead_code)]
     pub(crate) fn from_text(text: &str, filename: &str, number: usize) -> Self {
         Self::from_book(&Book::book_from_text(filename, text, number))
+    }
+
+    pub(crate) fn count_by_shape(&self) -> Vec<(Vec<usize>, usize)> {
+        let mut coll: HashMap<Vec<usize>, usize> = HashMap::default();
+
+        for o in self.squares.iter() {
+            let count = coll.entry(o.shape.clone()).or_default();
+            *count += 1;
+        }
+
+        coll.into_iter().collect_vec()
     }
 
     pub(crate) fn number_of_pairs(&self) -> usize {
@@ -183,5 +195,19 @@ impl Registry {
             .filter(|o| o.origin() == origin)
             .map(Item::Square)
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{folder::single_process, registry::Registry};
+
+    #[test]
+    fn test_count_by_shape() {
+        let r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
+        let res = single_process(&r);
+
+        assert_eq!(res.count_by_shape(), vec![(vec![2, 2], 1)])
     }
 }

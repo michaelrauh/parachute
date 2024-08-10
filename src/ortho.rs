@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 pub struct Ortho {
     contents: Vec<String>,
-    shape: Vec<usize>,
+    pub shape: Vec<usize>,
 }
 
 impl Ortho {
