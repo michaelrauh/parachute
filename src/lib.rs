@@ -71,7 +71,8 @@ pub async fn process(endpoint: String, location: String) {
             bucket.delete_chunk(registry).await;
 
             for (shape, count) in ans.count_by_shape() {
-                println!("{s}: {n}", s=shape.iter().format(","), n=count.to_string());
+                let print_shape = shape.iter().join(",");
+                println!("{:<15}: {:>5}", print_shape, count.to_string());
             }
 
         } else if let Some((source_answer, target_answer)) =
@@ -82,8 +83,8 @@ pub async fn process(endpoint: String, location: String) {
             for shape in all_shapes {
                 let source_count = source_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
                 let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
-                let print_shape = shape.iter().format(",");
-                println!("{shape}: {source} + {target} = ", shape=print_shape, source=source_count, target=target_count);
+                let print_shape = shape.iter().join(",");
+                println!("{:<15}: {:>5} + {:>5} = ", print_shape, source_count, target_count);
             }
             
             let new_answer = merge_process(&source_answer, &target_answer);
@@ -98,8 +99,10 @@ pub async fn process(endpoint: String, location: String) {
                 let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
                 let new_count = new_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
                 let discovered = new_count - (source_count + target_count);
-                let print_shape = shape.iter().format(",");
-                println!("{shape}: {source} + {target} = {new} ({diff} new)", shape=print_shape, source=source_count, target=target_count, new=new_count, diff=discovered);}
+                let print_shape = shape.iter().join(",");
+                let equation = format!("{:>5} + {:>5} = {:>5}", source_count, target_count, new_count);
+                println!("{:<15}: {:<25} ({:>2} new)", print_shape, equation, discovered);
+            }
         } else {
             break;
         }
