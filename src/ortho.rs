@@ -12,6 +12,9 @@ pub struct Ortho {
 
 impl Ortho {
     pub fn new(a: String, b: String, c: String, d: String) -> Self {
+        if a.is_empty() || b.is_empty() || c.is_empty() || d.is_empty() {
+            panic!("here");
+        }
         Ortho {
             contents: vec![a, b, c, d],
             shape: vec![2, 2],
@@ -61,7 +64,24 @@ impl Ortho {
     }
 
     pub(crate) fn zip_up(&self, r: &Ortho, correspondence: &[(String, String)]) -> Ortho {
+        if self.contents.iter().any(|x| x.is_empty()) {
+            dbg!(&self);
+            panic!("self has an empty on zip up");
+        }
+        
+        if r.contents.iter().any(|x| x.is_empty()) {
+            dbg!(&r);
+            panic!("other has an empty on zip up");
+        }
+
         let scrambled_right = self.apply_correspondence(correspondence, r);
+
+        if scrambled_right.iter().any(|x| x.is_empty()) {
+            dbg!(&self.shape == &r.shape); // todo this is the problem. It is zipping different shapes. Zipped things must be base and share dimensionality.
+            dbg!(&self, &r, &correspondence, scrambled_right);
+            panic!("scrambled right has an empty on zip up"); 
+        }
+
         Ortho {
             contents: self
                 .contents
@@ -108,8 +128,15 @@ impl Ortho {
                 .find_position(|x| x == &item)
                 .unwrap()
                 .0;
-            let coords = &all_coords[pos];
-            let new_coords = map_coords(&moves, coords);
+            let coords = &all_coords.get(pos);
+            let final_coords;
+            if coords.is_none() {
+                dbg!(&self, &moves);
+                panic!("hit");
+            } else {
+                final_coords = coords.unwrap();
+            }
+            let new_coords = map_coords(&moves, final_coords);
             let target_position = all_coords
                 .iter()
                 .find_position(|x| x == &&new_coords)

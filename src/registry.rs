@@ -112,6 +112,9 @@ impl Registry {
     }
 
     pub(crate) fn union(&self, target_answer: &Self) -> Self {
+        let mut new_name = self.name.clone();
+        new_name.push_str(&target_answer.name); // todo revert names to not be combined
+
         Registry {
             squares: self
                 .squares
@@ -119,7 +122,7 @@ impl Registry {
                 .cloned()
                 .collect(),
             pairs: self.pairs.union(&target_answer.pairs).cloned().collect(),
-            name: self.name.clone(),
+            name: new_name,
             provenance: self
                 .provenance
                 .iter()

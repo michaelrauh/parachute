@@ -7,6 +7,7 @@ fn sentences_to_pairs(sentences: Vec<Vec<String>>) -> Vec<Line> {
         .iter()
         .filter(|sentence| sentence.len() > 1)
         .flat_map(|sentence| split_sentence_to_pairs(sentence.clone()))
+        .filter(|l| !l.first.is_empty() && !l.second.is_empty())
         .collect()
 }
 

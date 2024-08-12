@@ -1,14 +1,8 @@
-use std::fs::read_to_string;
+use std::{collections::HashSet, fs::read_to_string};
 
-use charming::{
-    element::{
-        Emphasis, EmphasisFocus,
-    },
-    series::Sankey,
-    Chart,
-};
-
+use aws_sdk_s3::types::TargetGrant;
 use book_helper::Book;
+use charming::datatype::source;
 use file_helper::read_file;
 use folder::{merge_process, single_process};
 use itertools::Itertools;
@@ -68,8 +62,6 @@ pub async fn delete(endpoint: String, location: String) {
 #[tokio::main]
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location).await;
-    let mut names = vec![];
-    let mut links = vec![];
     loop {
         if let Some(registry) = bucket.checkout_smallest_chunk().await {
             dbg!(&registry.name);
@@ -78,95 +70,38 @@ pub async fn process(endpoint: String, location: String) {
             bucket.save_answer(ans.clone()).await;
             bucket.delete_chunk(registry).await;
 
-            let count_by_shape = ans.count_by_shape();
-            let new_links = count_by_shape.iter().map(|(shape, count)| {
-                let mut shape_and_chunk = ans.name.clone();
-                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-
-                (ans.name.clone(), shape_and_chunk, *count as i32)
-            });
-
-            for link in new_links {
-                links.push(link.clone());
-
-                if !names.contains(&link.0) {
-                    names.push(link.0);
-                }
-                
-                if !names.contains(&link.1) {
-                    names.push(link.1);
-                }
+            for (shape, count) in ans.count_by_shape() {
+                println!("{s}: {n}", s=shape.iter().format(","), n=count.to_string());
             }
 
-            display_report(&names, &links);
         } else if let Some((source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
+            let all_shapes: HashSet<Vec<usize>> = source_answer.count_by_shape().iter().map(|(s,c)| {s}).chain(target_answer.count_by_shape().iter().map(|(s,c)|s)).cloned().collect();
+            for shape in all_shapes {
+                let source_count = source_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let print_shape = shape.iter().format(",");
+                println!("{shape}: {source} + {target} = ", shape=print_shape, source=source_count, target=target_count);
+            }
+            
             let new_answer = merge_process(&source_answer, &target_answer);
-            let mut new_name = new_answer.name.clone();
-            new_name.push_str("_merged");
             
             bucket.save_answer(new_answer.clone()).await;
             bucket.delete_answer(source_answer.clone()).await;
             bucket.delete_answer(target_answer.clone()).await;
 
-            // from left to new
-            let count_by_shape = source_answer.count_by_shape();
-            let new_left_links = count_by_shape.iter().map(|(shape, count)| {
-                let mut shape_and_chunk = source_answer.name.clone();
-                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-
-                (shape_and_chunk.clone(), new_name.clone(), *count as i32)
-            });
-
-            // from right to new
-            let count_by_shape = target_answer.count_by_shape();
-            let new_right_links = count_by_shape.iter().map(|(shape, count)| {
-                let mut shape_and_chunk = target_answer.name.clone();
-                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-
-                (shape_and_chunk.clone(), new_name.clone(), *count as i32)
-            });
-
-            // from new to streams
-            let count_by_shape = new_answer.count_by_shape();
-            let new_links = count_by_shape.iter().map(|(shape, count)| {
-                let mut shape_and_chunk = new_name.clone();
-                shape_and_chunk.push_str(&shape.iter().map(|x| x.to_string()).join(","));
-
-                (new_name.clone(), shape_and_chunk.clone(), *count as i32)
-            });
-
-            for link in new_left_links.chain(new_right_links).chain(new_links) {
-                links.push(link.clone());
-
-                if !names.contains(&link.0) {
-                    names.push(link.0);
-                }
-                
-                if !names.contains(&link.1) {
-                    names.push(link.1);
-                }
-            }
-            display_report(&names, &links);
+            let all_shapes: HashSet<Vec<usize>> = source_answer.count_by_shape().iter().map(|(s,c)| {s}).chain(target_answer.count_by_shape().iter().map(|(s,c)|s)).chain(new_answer.count_by_shape().iter().map(|(s,c)|s)).cloned().collect();
+            for shape in all_shapes {
+                let source_count = source_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let new_count = new_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let discovered = new_count - (source_count + target_count);
+                let print_shape = shape.iter().format(",");
+                println!("{shape}: {source} + {target} = {new} ({diff} new)", shape=print_shape, source=source_count, target=target_count, new=new_count, diff=discovered);}
         } else {
             break;
         }
     }
-}
-
-fn display_report(names: &Vec<String>, links: &Vec<(String, String, i32)>) {
-    dbg!(&names, &links);
-    if links.len() == 0 {
-        return
-    }
-    let chart = Chart::new().series(
-        Sankey::new()
-            .emphasis(Emphasis::new().focus(EmphasisFocus::Adjacency))
-            .data(names.to_owned())
-            .links(links.to_owned()),
-    );
-    let mut renderer = charming::ImageRenderer::new(1000, 800);
-    renderer.save(&chart, "sankey.svg").unwrap();
 }
