@@ -107,11 +107,13 @@ fn handle_connection(registry: &Registry, l: &&Ortho, r: &&Ortho) -> Vec<Ortho> 
     // center: a-b
     // right ortho.origin = b
 
-    if l.shape != r.shape { // todo make this more general and move into ortho. It is only safe now because everything is base
-        return vec![]
+    if l.shape != r.shape {
+        return vec![];
     }
 
-    // todo make sure combining would not break the diagonal rule
+    if !l.valid_diagonal_with(r) {
+        return vec![];
+    }
 
     let potential_corresponding_axes = find_potential_correspondences(registry, l, r);
     potential_corresponding_axes

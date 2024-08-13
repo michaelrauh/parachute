@@ -74,34 +74,85 @@ pub async fn process(endpoint: String, location: String) {
                 let print_shape = shape.iter().join(",");
                 println!("{:<15}: {:>5}", print_shape, count.to_string());
             }
-
         } else if let Some((source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
-            let all_shapes: HashSet<Vec<usize>> = source_answer.count_by_shape().iter().map(|(s,c)| {s}).chain(target_answer.count_by_shape().iter().map(|(s,c)|s)).cloned().collect();
+            let all_shapes: HashSet<Vec<usize>> = source_answer
+                .count_by_shape()
+                .iter()
+                .map(|(s, c)| s)
+                .chain(target_answer.count_by_shape().iter().map(|(s, c)| s))
+                .cloned()
+                .collect();
             for shape in all_shapes {
-                let source_count = source_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
-                let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let source_count = source_answer
+                    .count_by_shape()
+                    .iter()
+                    .find(|(s, c)| *s == shape)
+                    .map(|(s, c)| c)
+                    .cloned()
+                    .unwrap_or_default();
+                let target_count = target_answer
+                    .count_by_shape()
+                    .iter()
+                    .find(|(s, c)| *s == shape)
+                    .map(|(s, c)| c)
+                    .cloned()
+                    .unwrap_or_default();
                 let print_shape = shape.iter().join(",");
-                println!("{:<15}: {:>5} + {:>5} = ", print_shape, source_count, target_count);
+                println!(
+                    "{:<15}: {:>5} + {:>5} = ",
+                    print_shape, source_count, target_count
+                );
             }
-            
+
             let new_answer = merge_process(&source_answer, &target_answer);
-            
+
             bucket.save_answer(new_answer.clone()).await;
             bucket.delete_answer(source_answer.clone()).await;
             bucket.delete_answer(target_answer.clone()).await;
 
-            let all_shapes: HashSet<Vec<usize>> = source_answer.count_by_shape().iter().map(|(s,c)| {s}).chain(target_answer.count_by_shape().iter().map(|(s,c)|s)).chain(new_answer.count_by_shape().iter().map(|(s,c)|s)).cloned().collect();
+            let all_shapes: HashSet<Vec<usize>> = source_answer
+                .count_by_shape()
+                .iter()
+                .map(|(s, c)| s)
+                .chain(target_answer.count_by_shape().iter().map(|(s, c)| s))
+                .chain(new_answer.count_by_shape().iter().map(|(s, c)| s))
+                .cloned()
+                .collect();
             for shape in all_shapes {
-                let source_count = source_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
-                let target_count = target_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
-                let new_count = new_answer.count_by_shape().iter().find(|(s, c)| *s == shape).map(|(s, c)| c).cloned().unwrap_or_default();
+                let source_count = source_answer
+                    .count_by_shape()
+                    .iter()
+                    .find(|(s, c)| *s == shape)
+                    .map(|(s, c)| c)
+                    .cloned()
+                    .unwrap_or_default();
+                let target_count = target_answer
+                    .count_by_shape()
+                    .iter()
+                    .find(|(s, c)| *s == shape)
+                    .map(|(s, c)| c)
+                    .cloned()
+                    .unwrap_or_default();
+                let new_count = new_answer
+                    .count_by_shape()
+                    .iter()
+                    .find(|(s, c)| *s == shape)
+                    .map(|(s, c)| c)
+                    .cloned()
+                    .unwrap_or_default();
                 let discovered = new_count - (source_count + target_count);
                 let print_shape = shape.iter().join(",");
-                let equation = format!("{:>5} + {:>5} = {:>5}", source_count, target_count, new_count);
-                println!("{:<15}: {:<25} ({:>2} new)", print_shape, equation, discovered);
+                let equation = format!(
+                    "{:>5} + {:>5} = {:>5}",
+                    source_count, target_count, new_count
+                );
+                println!(
+                    "{:<15}: {:<25} ({:>2} new)",
+                    print_shape, equation, discovered
+                );
             }
         } else {
             break;

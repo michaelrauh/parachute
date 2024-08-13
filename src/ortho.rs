@@ -13,7 +13,7 @@ pub struct Ortho {
 impl Ortho {
     pub fn new(a: String, b: String, c: String, d: String) -> Self {
         if a.is_empty() || b.is_empty() || c.is_empty() || d.is_empty() {
-            panic!("here");
+            panic!("here"); // todo remove panics
         }
         Ortho {
             contents: vec![a, b, c, d],
@@ -68,7 +68,7 @@ impl Ortho {
             dbg!(&self);
             panic!("self has an empty on zip up");
         }
-        
+
         if r.contents.iter().any(|x| x.is_empty()) {
             dbg!(&r);
             panic!("other has an empty on zip up");
@@ -77,9 +77,9 @@ impl Ortho {
         let scrambled_right = self.apply_correspondence(correspondence, r);
 
         if scrambled_right.iter().any(|x| x.is_empty()) {
-            dbg!(&self.shape == &r.shape); // todo this is the problem. It is zipping different shapes. Zipped things must be base and share dimensionality.
+            dbg!(&self.shape == &r.shape);
             dbg!(&self, &r, &correspondence, scrambled_right);
-            panic!("scrambled right has an empty on zip up"); 
+            panic!("scrambled right has an empty on zip up");
         }
 
         Ortho {
@@ -107,36 +107,35 @@ impl Ortho {
 
     fn get_one_hot(&self, left_corr: &String) -> usize {
         // get coord of the "one" coord of the location of the member
-        let pos = self
+        let poss = self
             .contents
             .iter()
-            .find_position(|x| x == &left_corr)
-            .unwrap()
-            .0;
-        let coords = &index_array(&self.shape)[pos];
-        coords.iter().find_position(|x| **x == 1).unwrap().0
+            .enumerate()
+            .filter(|(_pos, elem)| elem == &left_corr)
+            .map(|(pos, _elem)| pos);
+
+        let coords = &poss
+            .map(|pos| index_array(&self.shape)[pos].clone())
+            .filter(|idx| idx.to_owned().iter().sum::<usize>() == 1)
+            .next()
+            .unwrap();
+        let to_unwrap = coords.iter().find_position(|x| **x == 1);
+
+        if to_unwrap.is_none() {
+            dbg!(&self, &left_corr);
+            panic!("issue getting one hot");
+        } else {
+            to_unwrap.unwrap().0
+        }
     }
 
     fn scramble(&self, moves: HashMap<usize, usize>) -> Vec<String> {
         // look at the from/to mapping of positions and apply that to each position in the index array. Spit out members in order according to the index array.
         let all_coords = &index_array(&self.shape);
         let mut target = vec!["".to_owned(); self.contents.len()];
-        for item in &self.contents {
-            let pos = self
-                .contents
-                .iter()
-                .find_position(|x| x == &item)
-                .unwrap()
-                .0;
+        for (pos, item) in self.contents.iter().enumerate() {
             let coords = &all_coords.get(pos);
-            let final_coords;
-            if coords.is_none() {
-                dbg!(&self, &moves);
-                panic!("hit");
-            } else {
-                final_coords = coords.unwrap();
-            }
-            let new_coords = map_coords(&moves, final_coords);
+            let new_coords = map_coords(&moves, coords.unwrap());
             let target_position = all_coords
                 .iter()
                 .find_position(|x| x == &&new_coords)
@@ -201,6 +200,32 @@ impl Ortho {
             .map(|(i, _)| i)
             .collect()
     }
+
+    pub(crate) fn valid_diagonal_with(&self, r: &Ortho) -> bool {
+        let template = diagonal_template(self.shape.clone());
+        let mut left_buckets = vec![];
+        let mut right_buckets = vec![];
+        for template_bucket in template {
+            let mut left_bucket = HashSet::new();
+            let mut right_bucket = HashSet::new();
+
+            for location in template_bucket {
+                left_bucket.insert(self.contents[location].clone());
+                right_bucket.insert(r.contents[location].clone());
+            }
+            left_buckets.push(left_bucket);
+            right_buckets.push(right_bucket);
+        }
+        left_buckets.remove(0);
+        right_buckets.pop();
+
+        for (left_bucket, right_bucket) in left_buckets.iter().zip(right_buckets) {
+            if !left_bucket.is_disjoint(&right_bucket) {
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 fn map_coords(moves: &HashMap<usize, usize>, coords: &[usize]) -> Vec<usize> {
@@ -260,6 +285,7 @@ fn cartesian_product<T: Clone>(lists: Vec<Vec<T>>) -> Vec<Vec<T>> {
 }
 
 impl PartialEq for Ortho {
+    // todo override eq for shape
     fn eq(&self, other: &Self) -> bool {
         let lhs_shape = self.shape.iter().collect::<HashSet<_>>();
         let rhs_shape = other.shape.iter().collect::<HashSet<_>>();
@@ -617,5 +643,65 @@ mod tests {
         let mut rhs_hasher = DefaultHasher::new();
         gbcd.hash(&mut rhs_hasher);
         assert_eq!(lhs_hasher.finish(), rhs_hasher.finish());
+    }
+
+    #[test]
+    fn diagonal_differences_are_detected_for_up() {
+        let abcd = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let efgh = Ortho::new(
+            "e".to_owned(),
+            "f".to_owned(),
+            "g".to_owned(),
+            "h".to_owned(),
+        );
+        let bfgh = Ortho::new(
+            "b".to_owned(),
+            "f".to_owned(),
+            "g".to_owned(),
+            "h".to_owned(),
+        );
+        let dfgh = Ortho::new(
+            "e".to_owned(),
+            "d".to_owned(),
+            "g".to_owned(),
+            "h".to_owned(),
+        );
+
+        // 0 1 [a bc d]
+        // 1 2
+
+        // 1 2 [b fg h]
+        // 2 3 [e dg h]
+
+        assert!(abcd.valid_diagonal_with(&efgh));
+        assert!(!abcd.valid_diagonal_with(&bfgh));
+        assert!(!abcd.valid_diagonal_with(&dfgh));
+    }
+
+    #[test]
+    fn zip_up_works_even_if_a_is_d() {
+        let l = Ortho::new(
+            "a".to_owned(),
+            "b".to_owned(),
+            "c".to_owned(),
+            "d".to_owned(),
+        );
+        let r = Ortho::new(
+            "e".to_owned(),
+            "f".to_owned(),
+            "g".to_owned(),
+            "e".to_owned(),
+        );
+        let corr = vec![
+            ("b".to_string(), "f".to_string()),
+            ("c".to_string(), "g".to_string()),
+        ];
+
+        l.zip_up(&r, &corr);
     }
 }
