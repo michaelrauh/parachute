@@ -287,8 +287,8 @@ fn cartesian_product<T: Clone>(lists: Vec<Vec<T>>) -> Vec<Vec<T>> {
 impl PartialEq for Ortho {
     // todo override eq for shape
     fn eq(&self, other: &Self) -> bool {
-        let lhs_shape = self.shape.iter().collect::<HashSet<_>>();
-        let rhs_shape = other.shape.iter().collect::<HashSet<_>>();
+        let lhs_shape = self.shape.iter().sorted().collect_vec();
+        let rhs_shape = other.shape.iter().sorted().collect_vec();
         if lhs_shape != rhs_shape {
             return false;
         }
@@ -299,6 +299,10 @@ impl PartialEq for Ortho {
             let mut right_bucket = HashSet::new();
 
             for location in template_bucket {
+                if location >= self.contents.len() || self.contents.len() != other.contents.len() {
+                    dbg!(self, other);
+                    panic!("issue comparing two orthos");
+                }
                 left_bucket.insert(self.contents[location].clone());
                 right_bucket.insert(other.contents[location].clone());
             }
