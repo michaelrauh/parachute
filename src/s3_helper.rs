@@ -11,7 +11,7 @@ pub struct Bucket {
 impl Bucket {
     pub async fn new(endpoint: String, location: String) -> Self {
         let client =
-            aws_sdk_s3::Client::new(&aws_config::from_env().endpoint_url(endpoint).load().await);
+            aws_sdk_s3::Client::new(&aws_config::from_env().region("us-east-1").endpoint_url(endpoint).load().await);
         Bucket { client, location }
     }
 
