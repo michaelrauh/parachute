@@ -8,7 +8,7 @@ use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registr
 use itertools::{iproduct, Itertools};
 
 pub fn single_process(registry: &Registry) -> Registry {
-    dbg!("FFBB");
+    // dbg!("FFBB");
     let new_squares = ffbb(registry);
     let r = registry.add(new_squares.clone());
     fold_up_by_origin_repeatedly(r, new_squares)
@@ -17,17 +17,17 @@ pub fn single_process(registry: &Registry) -> Registry {
 // merge process assumes that registries are consistent - they have started with single process and then run merge process. This could be required by types.
 pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
     let detector = DiscontinuityDetector::new(source_answer, target_answer);
-    dbg!("unioning");
+    // dbg!("unioning");
     let both = source_answer.union(target_answer);
-    dbg!("done");
+    // dbg!("done");
     let mut check_back = vec![];
     let mut hit_counter = HitCounter::default();
-    dbg!(both.items().len());
+    // dbg!(both.items().len());
     for (i, line) in both.items().iter().enumerate() {
         let lhss = both.left_of(line);
         let rhss = both.right_of(line);
         if i % 1000 == 0 {
-            dbg!(both.items().len(), i);
+            // dbg!(both.items().len(), i);
         }
 
         for (lhs, rhs) in iproduct!(lhss, rhss) {
@@ -38,15 +38,15 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
             }
         }
     }
-    dbg!(hit_counter.ratio());
-    dbg!(check_back.len());
+    // dbg!(hit_counter.ratio());
+    // dbg!(check_back.len());
     let additional_squares = find_additional_squares(&both, check_back);
     let r = both.add(additional_squares.clone());
     fold_up_by_origin_repeatedly(r, additional_squares)
 }
 
 fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
-    dbg!("sifting");
+    // dbg!("sifting");
     std::iter::successors(
         Some((r, new_squares)),
         |(current_registry, current_squares)| {
@@ -64,12 +64,13 @@ fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registr
 }
 
 fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
-    dbg!("up", &new_squares.len());
+    // dbg!("up", &new_squares.len());
     new_squares
-        .iter().enumerate()
+        .iter()
+        .enumerate()
         .flat_map(|(i, ortho)| {
             if i % 1000 == 0 {
-                dbg!(&i, &new_squares.len());
+                // dbg!(&i, &new_squares.len());
             }
             r.forward(ortho.origin().to_string())
                 .iter()

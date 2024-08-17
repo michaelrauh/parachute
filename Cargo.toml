@@ -23,3 +23,10 @@ charming = { version = "0.3.1", features = ["ssr"] }
 
 [profile.release]
 debug = true
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

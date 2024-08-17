@@ -14,12 +14,12 @@ mod book_helper;
 pub mod color;
 pub mod discontinuity_detector;
 mod file_helper;
-mod folder;
+pub mod folder;
 mod hit_counter;
 pub mod item;
 pub mod line;
 mod ortho;
-mod registry;
+pub mod registry;
 mod s3_helper;
 
 #[tokio::main]
