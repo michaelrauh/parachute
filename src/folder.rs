@@ -13,7 +13,7 @@ pub fn single_process(registry: &Registry) -> Registry {
 }
 
 pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
-    let detector = DiscontinuityDetector::new(source_answer, target_answer);
+    let detector = DiscontinuityDetector::new(source_answer.to_owned(), target_answer.to_owned());
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
 
@@ -61,7 +61,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
                         .into_iter()
                         .filter_map(|other| {
                             if let crate::item::Item::Square(right_ortho) = other {
-                                Some(handle_connection(r, &&ortho, &right_ortho))
+                                Some(handle_connection(r, &&ortho, &&right_ortho))
                             } else {
                                 None
                             }
@@ -86,7 +86,7 @@ fn find_additional_squares(
             (Item::Pair(_), Item::Square(_), Item::Square(_)) => unreachable!(),
             (Item::Square(_), Item::Pair(_), Item::Pair(_)) => vec![],
             (Item::Square(l), Item::Pair(_), Item::Square(r)) => {
-                handle_connection(combined_book, l, r)
+                handle_connection(combined_book, &l, &r)
             }
             (Item::Square(_), Item::Square(_), Item::Pair(_)) => unreachable!(),
             (Item::Square(_), Item::Square(_), Item::Square(_)) => unreachable!(),

@@ -162,6 +162,7 @@ impl Registry {
         self.pairs
             .iter()
             .filter(|l| &l.first == first)
+            .cloned()
             .map(Pair)
             .collect_vec()
     }
@@ -176,8 +177,9 @@ impl Registry {
     pub(crate) fn items(&self) -> Vec<Item> {
         self.squares
             .iter()
+            .cloned()
             .map(Square)
-            .chain(self.pairs.iter().map(Pair))
+            .chain(self.pairs.iter().cloned().map(Pair))
             .collect()
     }
 
@@ -185,6 +187,7 @@ impl Registry {
         self.squares
             .iter()
             .filter(|o| o.origin() == origin)
+            .cloned()
             .map(Item::Square)
             .collect()
     }
