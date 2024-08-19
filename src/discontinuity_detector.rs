@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use itertools::iproduct;
+
 use crate::color::Color;
 use crate::item::Item;
 use crate::registry::Registry;
@@ -56,5 +58,15 @@ impl DiscontinuityDetector {
         } else {
             Color::Both
         }
+    }
+    
+    pub(crate) fn discontinuities(&self, lhss: Vec<Item>, rhss: Vec<Item>, line: &Item) -> Vec<(Item, Item, Item)> {
+        let mut check_back = vec![];
+        for (lhs, rhs) in iproduct!(lhss, rhss) {
+            if self.discontinuity(&lhs, line, &rhs) {
+                check_back.push((lhs, line.clone(), rhs));
+            }
+        }
+        check_back
     }
 }

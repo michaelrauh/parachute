@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::vec;
 
+use crate::discontinuity_detector;
 use crate::item::Item;
 use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
@@ -21,11 +22,7 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
         let lhss = both.left_of(line);
         let rhss = both.right_of(line);
 
-        for (lhs, rhs) in iproduct!(lhss, rhss) {
-            if detector.discontinuity(&lhs, line, &rhs) {
-                check_back.push((lhs, line.clone(), rhs));
-            }
-        }
+        check_back.extend(detector.discontinuities(lhss, rhss, line));
     }
 
     let additional_squares = find_additional_squares(&both, check_back);
