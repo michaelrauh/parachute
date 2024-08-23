@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::vec;
 
-use crate::discontinuity_detector;
-use crate::item::Item;
 use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::{iproduct, Itertools};
@@ -14,23 +12,31 @@ pub fn single_process(registry: &Registry) -> Registry {
 }
 
 pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
+    // todo dedup
     let detector = DiscontinuityDetector::new(source_answer.to_owned(), target_answer.to_owned());
+    dbg!("unioning");
     let both = source_answer.union(target_answer);
     let mut check_back = vec![];
+    let mut check_back_o_l_o = vec![];
 
-    for line in both.items().iter() {
-        let lhss = both.left_of(line);
-        let rhss = both.right_of(line);
+    dbg!("detecting line discontinuities");
+    check_back.extend(detector.l_l_l_discontinuities());
+    dbg!(check_back.len());
 
-        check_back.extend(detector.discontinuities(lhss, rhss, line));
-    }
+    dbg!("detecting ortho discontinuities");
+    check_back_o_l_o.extend(detector.o_l_o_discontinuities());
+    dbg!(check_back_o_l_o.len());
 
-    let additional_squares = find_additional_squares(&both, check_back);
-    let r = both.add(additional_squares.clone());
+    let additional_squares = find_additional_squares_from_l_l_l(&both, check_back);
+    dbg!(additional_squares.len());
+    let more_squares = find_additional_squares_from_o_l_o(&both, check_back_o_l_o);
+    dbg!(more_squares.len());
+    let r = both.add(additional_squares.clone()).add(more_squares);
     fold_up_by_origin_repeatedly(r, additional_squares)
 }
 
 fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
+    dbg!(new_squares.len());
     std::iter::successors(
         Some((r, new_squares)),
         |(current_registry, current_squares)| {
@@ -56,13 +62,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
                 .flat_map(|second| {
                     r.squares_with_origin(second)
                         .into_iter()
-                        .filter_map(|other| {
-                            if let crate::item::Item::Square(right_ortho) = other {
-                                Some(handle_connection(r, &&ortho, &&right_ortho))
-                            } else {
-                                None
-                            }
-                        })
+                        .map(|other| handle_connection(r, &&ortho, &&other))
                         .flatten()
                 })
                 .collect::<Vec<_>>()
@@ -70,28 +70,28 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
         .collect()
 }
 
-fn find_additional_squares(
+fn find_additional_squares_from_l_l_l(
     combined_book: &Registry,
-    check_back: Vec<(Item, Item, Item)>,
+    check_back: Vec<(Line, Line, Line)>,
 ) -> Vec<Ortho> {
     check_back
         .iter()
-        .flat_map(|(left, center, right)| match (left, center, right) {
-            (Item::Pair(l), Item::Pair(c), Item::Pair(r)) => handle_lines(combined_book, l, c, r),
-            (Item::Pair(_), Item::Pair(_), Item::Square(_)) => vec![],
-            (Item::Pair(_), Item::Square(_), Item::Pair(_)) => unreachable!(),
-            (Item::Pair(_), Item::Square(_), Item::Square(_)) => unreachable!(),
-            (Item::Square(_), Item::Pair(_), Item::Pair(_)) => vec![],
-            (Item::Square(l), Item::Pair(_), Item::Square(r)) => {
-                handle_connection(combined_book, &l, &r)
-            }
-            (Item::Square(_), Item::Square(_), Item::Pair(_)) => unreachable!(),
-            (Item::Square(_), Item::Square(_), Item::Square(_)) => unreachable!(),
-        })
-        .collect()
+        .flat_map(|(l, c, r)| handle_lines(combined_book, l, c, r))
+        .collect_vec()
 }
 
-fn handle_connection(registry: &Registry, l: &&Ortho, r: &&Ortho) -> Vec<Ortho> {
+fn find_additional_squares_from_o_l_o(
+    combined_book: &Registry,
+    check_back: Vec<(Ortho, Line, Ortho)>,
+) -> Vec<Ortho> {
+    check_back
+        .iter()
+        .flat_map(|(l, c, r)| handle_connection(combined_book, l, r))
+        .collect_vec()
+}
+
+fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Vec<Ortho> {
+    // todo make sure only base orthos are passed in, or check here
     // left: ortho with origin (for now) connected to the other (origin = a)
     // center: a-b
     // right ortho.origin = b
@@ -115,8 +115,8 @@ fn handle_connection(registry: &Registry, l: &&Ortho, r: &&Ortho) -> Vec<Ortho> 
 
 fn attempt_combine_up_by_corresponding_configuration(
     registry: &Registry,
-    l: &&Ortho,
-    r: &&Ortho,
+    l: &Ortho,
+    r: &Ortho,
     correspondence: Vec<(String, String)>,
 ) -> Vec<Ortho> {
     if all_other_connections_work(registry, l, r, &correspondence) {
@@ -139,8 +139,8 @@ fn all_other_connections_work(
 
 fn find_potential_correspondences(
     registry: &Registry,
-    l: &&Ortho,
-    r: &&Ortho,
+    l: &Ortho,
+    r: &Ortho,
 ) -> Vec<Vec<(String, String)>> {
     let left_axes = l.get_hop();
     let right_axes = r.get_hop();

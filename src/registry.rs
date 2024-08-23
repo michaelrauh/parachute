@@ -1,17 +1,16 @@
-use crate::registry::Item::Pair;
-use crate::registry::Item::Square;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::{book_helper::Book, item::Item, line::Line, ortho::Ortho};
+use crate::{book_helper::Book, line::Line, ortho::Ortho};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
     pub squares: HashSet<Ortho>,
     pub pairs: HashSet<Line>,
     pub name: String,
     pub provenance: Vec<String>,
+    pub squares_by_origin: HashMap<String, Vec<Ortho>>,
 }
 impl Registry {
     #[allow(dead_code)]
@@ -46,7 +45,7 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn left_of(&self, item: &Item) -> Vec<Item> {
+    pub(crate) fn line_left_of(&self, item: &Line) -> Vec<Line> {
         // for line-line-line relationships, this is as simple as:
         // left: a-b
         // center: a-c
@@ -55,36 +54,37 @@ impl Registry {
         // |
         // c-d
 
+        self.lines_starting_with(&item.first)
+            .iter()
+            .cloned()
+            .collect()
+    }
+
+    pub(crate) fn square_left_of(&self, item: &Line) -> Vec<Ortho> {
         // for square-line-square relationships, you get:
         // left: origin, hop, contents. Start with origin:
         // left square.origin = a
         // center: a-b
         // right: other_square.origin = b
 
-        // if the item is a square, you have a square in the center which is not useful.
-        // return an empty for now but consider unbundling item out and managing these calls separately
-        // to avoid this situation
-        match item {
-            Item::Pair(l) => self
-                .lines_starting_with(&l.first)
-                .iter()
-                .chain(self.squares_with_origin(&l.first).iter())
-                .cloned()
-                .collect(),
-            Item::Square(_) => vec![],
-        }
+        self.squares_with_origin(&item.first)
+            .iter()
+            .cloned()
+            .collect()
     }
 
-    pub(crate) fn right_of(&self, item: &Item) -> Vec<Item> {
-        match item {
-            Item::Pair(l) => self
-                .lines_starting_with(&l.second)
-                .iter()
-                .chain(self.squares_with_origin(&l.second).iter())
-                .cloned()
-                .collect(),
-            Item::Square(_) => vec![],
-        }
+    pub(crate) fn line_right_of(&self, item: &Line) -> Vec<Line> {
+        self.lines_starting_with(&item.second)
+            .iter()
+            .cloned()
+            .collect()
+    }
+
+    pub(crate) fn ortho_right_of(&self, item: &Line) -> Vec<Ortho> {
+        self.squares_with_origin(&item.second)
+            .iter()
+            .cloned()
+            .collect()
     }
 
     pub fn name(&self) -> &str {
@@ -95,12 +95,19 @@ impl Registry {
         let self_prov: HashSet<_> = HashSet::from_iter(self.provenance.clone());
         let other_prov: HashSet<_> = HashSet::from_iter(target_answer.provenance.clone());
         let new_provenance: Vec<String> = self_prov.difference(&other_prov).cloned().collect_vec();
+        let all_squares: HashSet<Ortho> = self
+            .squares
+            .difference(&target_answer.squares)
+            .cloned()
+            .collect();
+
+        let new_sbo: HashMap<String, Vec<Ortho>> = all_squares
+            .iter()
+            .cloned()
+            .into_group_map_by(|o| o.origin().to_string());
+
         Registry {
-            squares: self
-                .squares
-                .difference(&target_answer.squares)
-                .cloned()
-                .collect(),
+            squares: all_squares,
             pairs: self
                 .pairs
                 .difference(&target_answer.pairs)
@@ -108,16 +115,23 @@ impl Registry {
                 .collect(),
             name: self.name.clone(),
             provenance: new_provenance,
+            squares_by_origin: new_sbo,
         }
     }
 
     pub(crate) fn union(&self, target_answer: &Self) -> Self {
+        let all_squares: HashSet<Ortho> = self
+            .squares
+            .union(&target_answer.squares)
+            .cloned()
+            .collect();
+        let new_sbo: HashMap<String, Vec<Ortho>> = all_squares
+            .iter()
+            .cloned()
+            .into_group_map_by(|o| o.origin().to_string());
+
         Registry {
-            squares: self
-                .squares
-                .union(&target_answer.squares)
-                .cloned()
-                .collect(),
+            squares: all_squares,
             pairs: self.pairs.union(&target_answer.pairs).cloned().collect(),
             name: self.name.clone(),
             provenance: self
@@ -126,19 +140,26 @@ impl Registry {
                 .chain(target_answer.provenance.iter())
                 .cloned()
                 .collect_vec(),
+            squares_by_origin: new_sbo,
         }
     }
 
     pub(crate) fn add(&self, additional_squares: Vec<Ortho>) -> Self {
+        let all_squares: HashSet<_> = self
+            .squares
+            .union(&additional_squares.iter().cloned().collect())
+            .cloned()
+            .collect();
+        let new_sbo: HashMap<String, Vec<Ortho>> = all_squares
+            .iter()
+            .cloned()
+            .into_group_map_by(|o| o.origin().to_string());
         Registry {
-            squares: self
-                .squares
-                .union(&additional_squares.iter().cloned().collect())
-                .cloned()
-                .collect(),
+            squares: all_squares,
             pairs: self.pairs.clone(),
             name: self.name.clone(),
             provenance: self.provenance.clone(),
+            squares_by_origin: new_sbo,
         }
     }
 
@@ -148,22 +169,23 @@ impl Registry {
             pairs: book.make_pairs(),
             name: book.calculate_name(),
             provenance: vec![book.calculate_name()],
+            squares_by_origin: HashMap::default(),
         }
     }
 
-    pub(crate) fn contains(&self, item: &Item) -> bool {
-        match item {
-            Pair(l) => self.pairs.contains(l),
-            Square(s) => self.squares.contains(s),
-        }
+    pub(crate) fn contains_line(&self, item: &Line) -> bool {
+        self.pairs.contains(item)
     }
 
-    fn lines_starting_with(&self, first: &String) -> Vec<Item> {
+    pub(crate) fn contains_ortho(&self, item: &Ortho) -> bool {
+        self.squares.contains(item)
+    }
+
+    fn lines_starting_with(&self, first: &String) -> Vec<Line> {
         self.pairs
             .iter()
             .filter(|l| &l.first == first)
             .cloned()
-            .map(Pair)
             .collect_vec()
     }
 
@@ -174,22 +196,19 @@ impl Registry {
         })
     }
 
-    pub(crate) fn items(&self) -> Vec<Item> {
-        self.squares
-            .iter()
-            .cloned()
-            .map(Square)
-            .chain(self.pairs.iter().cloned().map(Pair))
-            .collect()
+    pub(crate) fn lines(&self) -> Vec<Line> {
+        self.pairs.iter().cloned().collect()
     }
 
-    pub fn squares_with_origin(&self, origin: &str) -> Vec<Item> {
-        self.squares
-            .iter()
-            .filter(|o| o.origin() == origin)
+    pub(crate) fn orthos(&self) -> Vec<Ortho> {
+        self.squares.iter().cloned().collect()
+    }
+
+    pub fn squares_with_origin(&self, origin: &str) -> Vec<Ortho> {
+        self.squares_by_origin
+            .get(origin)
             .cloned()
-            .map(Item::Square)
-            .collect()
+            .unwrap_or_default()
     }
 }
 
