@@ -16,23 +16,18 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     let detector = DiscontinuityDetector::new(source_answer.to_owned(), target_answer.to_owned());
     dbg!("unioning");
     let both = source_answer.union(target_answer);
-    let mut check_back = vec![];
-    let mut check_back_o_l_o = vec![];
 
     dbg!("detecting line discontinuities");
-    check_back.extend(detector.l_l_l_discontinuities());
-    dbg!(check_back.len());
+    let lll_discontinuities = detector.l_l_l_discontinuities();
 
     dbg!("detecting ortho discontinuities");
-    check_back_o_l_o.extend(detector.o_l_o_discontinuities());
-    dbg!(check_back_o_l_o.len());
+    let olo_discontinuities = detector.o_l_o_discontinuities();
 
-    let additional_squares = find_additional_squares_from_l_l_l(&both, check_back);
-    dbg!(additional_squares.len());
-    let more_squares = find_additional_squares_from_o_l_o(&both, check_back_o_l_o);
-    dbg!(more_squares.len());
-    let r = both.add(additional_squares.clone()).add(more_squares);
-    fold_up_by_origin_repeatedly(r, additional_squares)
+    let additional_squares = find_additional_squares_from_l_l_l(&both, lll_discontinuities);
+    let more_squares = find_additional_squares_from_o_l_o(&both, olo_discontinuities);
+    let all_squares: Vec<Ortho> = additional_squares.into_iter().chain(more_squares).collect();
+    let r = both.add(all_squares.clone());
+    fold_up_by_origin_repeatedly(r, all_squares)
 }
 
 fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
@@ -62,6 +57,8 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
                 .flat_map(|second| {
                     r.squares_with_origin(second)
                         .into_iter()
+                        .filter(|o| o.shape == ortho.shape)
+                        .filter(|o| o.valid_diagonal_with(ortho))
                         .map(|other| handle_connection(r, &&ortho, &&other))
                         .flatten()
                 })
@@ -80,13 +77,12 @@ fn find_additional_squares_from_l_l_l(
         .collect_vec()
 }
 
-fn find_additional_squares_from_o_l_o(
-    combined_book: &Registry,
-    check_back: Vec<(Ortho, Line, Ortho)>,
-) -> Vec<Ortho> {
+fn find_additional_squares_from_o_l_o<I>(combined_book: &Registry, check_back: I) -> Vec<Ortho>
+where
+    I: Iterator<Item = (Ortho, Line, Ortho)>,
+{
     check_back
-        .iter()
-        .flat_map(|(l, c, r)| handle_connection(combined_book, l, r))
+        .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r))
         .collect_vec()
 }
 
@@ -95,22 +91,18 @@ fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Vec<Ortho> {
     // left: ortho with origin (for now) connected to the other (origin = a)
     // center: a-b
     // right ortho.origin = b
-
-    if l.shape != r.shape {
-        return vec![];
-    }
-
-    if !l.valid_diagonal_with(r) {
-        return vec![];
-    }
+    // assumption: passed in orthos have the same shape
+    // assumption: passed in orthos have valid diagonals
 
     let potential_corresponding_axes = find_potential_correspondences(registry, l, r);
-    potential_corresponding_axes
+    let ans = potential_corresponding_axes
         .into_iter()
         .flat_map(|correspondence| {
             attempt_combine_up_by_corresponding_configuration(registry, l, r, correspondence)
         })
-        .collect_vec()
+        .collect_vec();
+
+    ans
 }
 
 fn attempt_combine_up_by_corresponding_configuration(
