@@ -12,9 +12,6 @@ pub struct Ortho {
 
 impl Ortho {
     pub fn new(a: String, b: String, c: String, d: String) -> Self {
-        if a.is_empty() || b.is_empty() || c.is_empty() || d.is_empty() {
-            panic!("here"); // todo remove panics
-        }
         Ortho {
             contents: vec![a, b, c, d],
             shape: vec![2, 2],
@@ -64,23 +61,7 @@ impl Ortho {
     }
 
     pub(crate) fn zip_up(&self, r: &Ortho, correspondence: &[(String, String)]) -> Ortho {
-        if self.contents.iter().any(|x| x.is_empty()) {
-            dbg!(&self);
-            panic!("self has an empty on zip up");
-        }
-
-        if r.contents.iter().any(|x| x.is_empty()) {
-            dbg!(&r);
-            panic!("other has an empty on zip up");
-        }
-
         let scrambled_right = self.apply_correspondence(correspondence, r);
-
-        if scrambled_right.iter().any(|x| x.is_empty()) {
-            dbg!(&self.shape == &r.shape);
-            dbg!(&self, &r, &correspondence, scrambled_right);
-            panic!("scrambled right has an empty on zip up");
-        }
 
         Ortho {
             contents: self
@@ -120,13 +101,7 @@ impl Ortho {
             .next()
             .unwrap();
         let to_unwrap = coords.iter().find_position(|x| **x == 1);
-
-        if to_unwrap.is_none() {
-            dbg!(&self, &left_corr);
-            panic!("issue getting one hot");
-        } else {
             to_unwrap.unwrap().0
-        }
     }
 
     fn scramble(&self, moves: HashMap<usize, usize>) -> Vec<String> {
@@ -299,10 +274,6 @@ impl PartialEq for Ortho {
             let mut right_bucket = HashSet::new();
 
             for location in template_bucket {
-                if location >= self.contents.len() || self.contents.len() != other.contents.len() {
-                    dbg!(self, other);
-                    panic!("issue comparing two orthos");
-                }
                 left_bucket.insert(self.contents[location].clone());
                 right_bucket.insert(other.contents[location].clone());
             }

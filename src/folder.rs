@@ -12,7 +12,6 @@ pub fn single_process(registry: &Registry) -> Registry {
 }
 
 pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
-    // todo dedup
     let detector = DiscontinuityDetector::new(source_answer.to_owned(), target_answer.to_owned());
     dbg!("unioning");
     let both = source_answer.union(target_answer);
@@ -49,6 +48,7 @@ fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registr
 }
 
 fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
+    dbg!(new_squares.len());
     new_squares
         .iter()
         .flat_map(|ortho| {
