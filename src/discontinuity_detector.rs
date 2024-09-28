@@ -143,7 +143,7 @@ impl DiscontinuityDetector {
         let uncolored_orthos = self.uncolored_ortho_left(center_line, shape);
 
         uncolored_orthos
-            .iter()
+            .into_iter()
             .map(|o| (o.clone(), self.orthos[o].clone()))
             .collect()
     }
@@ -175,13 +175,11 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn uncolored_ortho_left(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<Ortho> {
+    fn uncolored_ortho_left(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<&Ortho> {
         self.source
             .square_left_of(center_line)
-            .iter()
-            .chain(&self.target.square_left_of(center_line))
+            .chain(self.target.square_left_of(center_line))
             .filter(|o| &o.shape == shape)
-            .cloned()
             .collect()
     }
 
@@ -206,8 +204,7 @@ impl DiscontinuityDetector {
     fn uncolored_ortho_right(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<Ortho> {
         self.source
             .ortho_right_of(center_line)
-            .iter()
-            .chain(&self.target.ortho_right_of(center_line))
+            .chain(self.target.ortho_right_of(center_line))
             .filter(|o| &o.shape == shape)
             .cloned()
             .collect()

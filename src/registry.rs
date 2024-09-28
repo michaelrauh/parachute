@@ -61,17 +61,13 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn square_left_of(&self, item: &Line) -> Vec<Ortho> {
+    pub(crate) fn square_left_of<'a>(&'a self, item: &Line) -> impl Iterator<Item = &'a Ortho> + 'a {
         // for square-line-square relationships, you get:
         // left: origin, hop, contents. Start with origin:
         // left square.origin = a
         // center: a-b
         // right: other_square.origin = b
-
         self.squares_with_origin(&item.first)
-            .iter()
-            .cloned()
-            .collect()
     }
 
     pub(crate) fn line_right_of(&self, item: &Line) -> Vec<Line> {
@@ -81,11 +77,8 @@ impl Registry {
             .collect()
     }
 
-    pub(crate) fn ortho_right_of(&self, item: &Line) -> Vec<Ortho> {
+    pub(crate) fn ortho_right_of<'a>(&'a self, item: &Line) -> impl Iterator<Item = &'a Ortho>  + 'a {
         self.squares_with_origin(&item.second)
-            .iter()
-            .cloned()
-            .collect()
     }
 
     pub fn name(&self) -> &str {
@@ -205,12 +198,12 @@ impl Registry {
         self.squares.iter().cloned().collect()
     }
 
-    pub fn squares_with_origin(&self, origin: &str) -> Vec<Ortho> {
+    pub fn squares_with_origin<'a>(&'a self, origin: &str) -> impl Iterator<Item = &'a Ortho> + 'a {
         self.squares_by_origin
             .get(origin)
-            .cloned()
-            .unwrap_or_default()
-    }
+            .into_iter()
+            .flat_map(|v| v.iter())
+    }    
 }
 
 #[cfg(test)]
