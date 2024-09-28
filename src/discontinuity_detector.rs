@@ -93,14 +93,12 @@ impl DiscontinuityDetector {
         let left_shapes = self
         .source
         .count_by_shape()
-        .iter()
         .map(|(s, _c)| s.clone())
         .collect_vec();
 
         let right_shapes = self
         .target
         .count_by_shape()
-        .iter()
         .map(|(s, _c)| s.clone())
         .collect_vec();
 

@@ -78,25 +78,20 @@ pub async fn process(endpoint: String, location: String) {
             dbg!(&source_answer.name, &target_answer.name);
             let all_shapes: HashSet<Bag<usize>> = source_answer
                 .count_by_shape()
-                .iter()
                 .map(|(s, _c)| s)
-                .chain(target_answer.count_by_shape().iter().map(|(s, _c)| s))
+                .chain(target_answer.count_by_shape().map(|(s, _c)| s))
                 .cloned()
                 .collect();
             for shape in all_shapes {
                 let source_count = source_answer
                     .count_by_shape()
-                    .iter()
-                    .find(|(s, _c)| *s == shape)
+                    .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
-                    .cloned()
                     .unwrap_or_default();
                 let target_count = target_answer
                     .count_by_shape()
-                    .iter()
-                    .find(|(s,_c)| *s == shape)
+                    .find(|(s,_c)| *s == &shape)
                     .map(|(_s, c)| c)
-                    .cloned()
                     .unwrap_or_default();
                 let print_shape = shape.iter().join(",");
                 println!(
@@ -113,33 +108,26 @@ pub async fn process(endpoint: String, location: String) {
 
             let all_shapes: HashSet<Bag<usize>> = source_answer
                 .count_by_shape()
-                .iter()
                 .map(|(s, _c)| s)
-                .chain(target_answer.count_by_shape().iter().map(|(s, _c)| s))
-                .chain(new_answer.count_by_shape().iter().map(|(s, _c)| s))
+                .chain(target_answer.count_by_shape().map(|(s, _c)| s))
+                .chain(new_answer.count_by_shape().map(|(s, _c)| s))
                 .cloned()
                 .collect();
             for shape in all_shapes {
                 let source_count = source_answer
                     .count_by_shape()
-                    .iter()
-                    .find(|(s, _c)| *s == shape)
+                    .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
-                    .cloned()
                     .unwrap_or_default();
                 let target_count = target_answer
                     .count_by_shape()
-                    .iter()
-                    .find(|(s, _c)| *s == shape)
+                    .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
-                    .cloned()
                     .unwrap_or_default();
                 let new_count = new_answer
                     .count_by_shape()
-                    .iter()
-                    .find(|(s, _c)| *s == shape)
+                    .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
-                    .cloned()
                     .unwrap_or_default();
                 let discovered = new_count - (source_count + target_count);
                 let print_shape = shape.iter().join(",");

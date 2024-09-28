@@ -19,15 +19,15 @@ impl Registry {
         Self::from_book(&Book::book_from_text(filename, text, number))
     }
 
-    pub(crate) fn count_by_shape(&self) -> Vec<(Bag<usize>, usize)> {
-        let mut coll: HashMap<Bag<usize>, usize> = HashMap::default();
-
-        for o in self.squares.iter() {
-            let count = coll.entry(o.shape.clone()).or_default();
+    pub(crate) fn count_by_shape<'a>(&'a self) -> impl Iterator<Item = (&'a Bag<usize>, usize)> + 'a {
+        let mut coll: HashMap<&'a Bag<usize>, usize> = HashMap::new();
+    
+        for o in &self.squares {
+            let count = coll.entry(&o.shape).or_insert(0);
             *count += 1;
         }
-
-        coll.into_iter().collect_vec()
+    
+        coll.into_iter()
     }
 
     pub fn forward(&self, from: String) -> HashSet<String> {
@@ -213,9 +213,21 @@ mod tests {
 
     #[test]
     fn test_count_by_shape() {
+        use std::iter::FromIterator;
+    
         let r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
         let res = single_process(&r);
-
-        assert_eq!(res.count_by_shape(), vec![(Bag::from_iter(vec![2, 2]), 1)])
+    
+        let mut count_by_shape: Vec<(Bag<usize>, usize)> = res
+            .count_by_shape()
+            .map(|(bag, count)| (bag.clone(), count))
+            .collect();
+    
+        count_by_shape.sort_by(|a, b| a.0.cmp(&b.0));
+    
+        let expected = vec![(Bag::from_iter(vec![2, 2]), 1)];
+    
+        assert_eq!(count_by_shape, expected);
     }
+    
 }
