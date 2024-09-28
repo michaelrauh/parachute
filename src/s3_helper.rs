@@ -85,17 +85,6 @@ impl Bucket {
         }
     }
 
-    pub async fn checkout_largest_chunk(&self) -> Option<Registry> {
-        let f = self.get_largest_file_name("chunks").await;
-
-        if let Some(f) = f {
-            self.move_chunk(&f, "chunks", "singleprocessing/").await;
-            Some(self.read_chunk(&f, "singleprocessing/").await)
-        } else {
-            None
-        }
-    }
-
     pub async fn checkout_largest_and_smallest_answer(&self) -> Option<(Registry, Registry)> {
         let f = self.get_largest_and_smallest_file_name("answers").await;
 

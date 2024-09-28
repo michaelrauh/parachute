@@ -1,5 +1,6 @@
 use std::{collections::HashSet, fs::read_to_string};
 
+use bag::Bag;
 use book_helper::Book;
 use file_helper::read_file;
 use folder::{merge_process, single_process};
@@ -13,7 +14,7 @@ pub mod color;
 pub mod discontinuity_detector;
 mod file_helper;
 pub mod folder;
-mod hit_counter;
+pub mod bag;
 pub mod line;
 mod ortho;
 pub mod registry;
@@ -75,26 +76,26 @@ pub async fn process(endpoint: String, location: String) {
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
-            let all_shapes: HashSet<Vec<usize>> = source_answer
+            let all_shapes: HashSet<Bag<usize>> = source_answer
                 .count_by_shape()
                 .iter()
-                .map(|(s, c)| s)
-                .chain(target_answer.count_by_shape().iter().map(|(s, c)| s))
+                .map(|(s, _c)| s)
+                .chain(target_answer.count_by_shape().iter().map(|(s, _c)| s))
                 .cloned()
                 .collect();
             for shape in all_shapes {
                 let source_count = source_answer
                     .count_by_shape()
                     .iter()
-                    .find(|(s, c)| *s == shape)
-                    .map(|(s, c)| c)
+                    .find(|(s, _c)| *s == shape)
+                    .map(|(_s, c)| c)
                     .cloned()
                     .unwrap_or_default();
                 let target_count = target_answer
                     .count_by_shape()
                     .iter()
-                    .find(|(s, c)| *s == shape)
-                    .map(|(s, c)| c)
+                    .find(|(s,_c)| *s == shape)
+                    .map(|(_s, c)| c)
                     .cloned()
                     .unwrap_or_default();
                 let print_shape = shape.iter().join(",");
@@ -110,34 +111,34 @@ pub async fn process(endpoint: String, location: String) {
             bucket.delete_answer(source_answer.clone()).await;
             bucket.delete_answer(target_answer.clone()).await;
 
-            let all_shapes: HashSet<Vec<usize>> = source_answer
+            let all_shapes: HashSet<Bag<usize>> = source_answer
                 .count_by_shape()
                 .iter()
-                .map(|(s, c)| s)
-                .chain(target_answer.count_by_shape().iter().map(|(s, c)| s))
-                .chain(new_answer.count_by_shape().iter().map(|(s, c)| s))
+                .map(|(s, _c)| s)
+                .chain(target_answer.count_by_shape().iter().map(|(s, _c)| s))
+                .chain(new_answer.count_by_shape().iter().map(|(s, _c)| s))
                 .cloned()
                 .collect();
             for shape in all_shapes {
                 let source_count = source_answer
                     .count_by_shape()
                     .iter()
-                    .find(|(s, c)| *s == shape)
-                    .map(|(s, c)| c)
+                    .find(|(s, _c)| *s == shape)
+                    .map(|(_s, c)| c)
                     .cloned()
                     .unwrap_or_default();
                 let target_count = target_answer
                     .count_by_shape()
                     .iter()
-                    .find(|(s, c)| *s == shape)
-                    .map(|(s, c)| c)
+                    .find(|(s, _c)| *s == shape)
+                    .map(|(_s, c)| c)
                     .cloned()
                     .unwrap_or_default();
                 let new_count = new_answer
                     .count_by_shape()
                     .iter()
-                    .find(|(s, c)| *s == shape)
-                    .map(|(s, c)| c)
+                    .find(|(s, _c)| *s == shape)
+                    .map(|(_s, c)| c)
                     .cloned()
                     .unwrap_or_default();
                 let discovered = new_count - (source_count + target_count);

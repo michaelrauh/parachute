@@ -1,34 +1,55 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    iter,
+};
 
 use itertools::Itertools;
-use memoize::memoize;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+use crate::bag::Bag;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ortho {
-    contents: Vec<String>,
-    pub shape: Vec<usize>,
+    shells: Vec<BTreeSet<String>>,
+    pub shape: Bag<usize>,
+    location_to_word: BTreeMap<Bag<String>, String>,
+    word_to_location: BTreeMap<String, Bag<String>>,
 }
 
 impl Ortho {
     pub fn new(a: String, b: String, c: String, d: String) -> Self {
+        let bag_a = Bag::new();
+        let bag_b = Bag::from_iter(iter::once(b.clone()));
+        let bag_c = Bag::from_iter(iter::once(c.clone()));
+        let bag_d = Bag::from_iter(iter::once(b.clone()).chain(iter::once(c.clone())));
         Ortho {
-            contents: vec![a, b, c, d],
-            shape: vec![2, 2],
+            shells: vec![
+                BTreeSet::from_iter(iter::once(a.clone())),
+                BTreeSet::from_iter(iter::once(b.clone()).chain(iter::once(c.clone()))),
+                BTreeSet::from_iter(iter::once(d.clone())),
+            ],
+            shape: Bag::from_iter(iter::once(2).chain(iter::once(2))),
+            location_to_word: BTreeMap::from_iter(vec![
+                (bag_a.clone(), a.clone()),
+                (bag_b.clone(), b.clone()),
+                (bag_c.clone(), c.clone()),
+                (bag_d.clone(), d.clone()),
+            ]),
+            word_to_location: BTreeMap::from_iter(vec![
+                (a, bag_a),
+                (b, bag_b),
+                (c, bag_c),
+                (d, bag_d),
+            ]),
         }
     }
 
     pub fn get_hop(&self) -> Vec<String> {
-        index_array(&self.shape)
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x.iter().sum::<usize>() == 1)
-            .map(|(i, _)| self.contents[i].clone())
-            .collect()
+        self.shells[1].iter().cloned().collect_vec()
     }
 
     pub(crate) fn origin(&self) -> &String {
-        &self.contents[0]
+        self.shells[0].iter().next().unwrap()
     }
 
     pub(crate) fn dimensionality(&self) -> usize {
@@ -36,11 +57,12 @@ impl Ortho {
     }
 
     pub(crate) fn contents(&self) -> Vec<String> {
-        self.contents
+        self.shells
             .iter()
-            .filter(|x| x != &self.origin() && !self.get_hop().contains(x))
+            .skip(2)
+            .flat_map(|set| set.iter())
             .cloned()
-            .collect_vec()
+            .collect()
     }
 
     pub(crate) fn connection_works(
@@ -50,265 +72,179 @@ impl Ortho {
         correspondence: &[(String, String)],
         other_ortho: &&Ortho,
     ) -> bool {
-        let correlated_right = self.apply_correspondence(correspondence, &other_ortho);
-        let pos = self
-            .contents
-            .iter()
-            .find_position(|x| x == &&self_word)
-            .unwrap()
-            .0;
-        registry.forward(self_word).contains(&correlated_right[pos])
+        let corresponding_word = self.get_corresponding_word(
+            &correspondence.into_iter().cloned().collect(),
+            &other_ortho,
+            &self_word,
+        );
+        registry.forward(self_word).contains(&corresponding_word)
+    }
+
+    fn reverse(btree: BTreeMap<Bag<String>, String>) -> BTreeMap<String, Bag<String>> {
+        let mut reversed = BTreeMap::new();
+        for (bag, string_value) in btree {
+            reversed.insert(string_value, bag);
+        }
+        reversed
     }
 
     pub(crate) fn zip_up(&self, r: &Ortho, correspondence: &[(String, String)]) -> Ortho {
-        let scrambled_right = self.apply_correspondence(correspondence, r);
-
+        let forward = self.zip_up_map(r, &correspondence.into_iter().cloned().collect());
         Ortho {
-            contents: self
-                .contents
-                .iter()
-                .cloned()
-                .chain(scrambled_right)
-                .collect(),
+            shells: combine_shells(&self.shells, &r.shells),
             shape: self.shape.iter().cloned().chain(vec![2]).collect(),
+            location_to_word: forward.clone(),
+            word_to_location: Self::reverse(forward),
         }
     }
 
-    fn apply_correspondence(&self, correspondence: &[(String, String)], r: &Ortho) -> Vec<String> {
-        let moves: HashMap<usize, usize> = correspondence
+    pub fn zip_up_map(
+        &self,
+        r: &Ortho,
+        old_axis_to_new_axis: &BTreeMap<String, String>,
+    ) -> BTreeMap<Bag<String>, String> {
+        let shift_axis = r.origin();
+        let right_with_lefts_coordinate_system: BTreeMap<Bag<String>, String> = r
+            .location_to_word
             .iter()
-            .map(|(left_corr, right_corr)| {
-                let left_position = self.get_one_hot(left_corr);
-                let right_position = r.get_one_hot(right_corr);
-                (left_position, right_position)
+            .map(|(k, v)| {
+                (
+                    map_location(
+                        &old_axis_to_new_axis
+                            .iter()
+                            .map(|(key, value)| (value.clone(), key.clone()))
+                            .collect(),
+                        k,
+                    ),
+                    v.clone(),
+                )
             })
             .collect();
-        r.scramble(moves)
-    }
-
-    fn get_one_hot(&self, left_corr: &String) -> usize {
-        // get coord of the "one" coord of the location of the member
-        let poss = self
-            .contents
+        let shifted_right: BTreeMap<Bag<String>, String> = right_with_lefts_coordinate_system
             .iter()
-            .enumerate()
-            .filter(|(_pos, elem)| elem == &left_corr)
-            .map(|(pos, _elem)| pos);
-
-        let coords = &poss
-            .map(|pos| index_array(&self.shape)[pos].clone())
-            .filter(|idx| idx.to_owned().iter().sum::<usize>() == 1)
-            .next()
-            .unwrap();
-        let to_unwrap = coords.iter().find_position(|x| **x == 1);
-            to_unwrap.unwrap().0
+            .map(|(k, v)| (shift_location(shift_axis, k), v.clone()))
+            .collect();
+        let combined: BTreeMap<Bag<String>, String> = self
+            .location_to_word
+            .clone()
+            .into_iter()
+            .chain(shifted_right)
+            .collect();
+        combined
     }
 
-    fn scramble(&self, moves: HashMap<usize, usize>) -> Vec<String> {
-        // look at the from/to mapping of positions and apply that to each position in the index array. Spit out members in order according to the index array.
-        let all_coords = &index_array(&self.shape);
-        let mut target = vec!["".to_owned(); self.contents.len()];
-        for (pos, item) in self.contents.iter().enumerate() {
-            let coords = &all_coords.get(pos);
-            let new_coords = map_coords(&moves, coords.unwrap());
-            let target_position = all_coords
-                .iter()
-                .find_position(|x| x == &&new_coords)
-                .unwrap()
-                .0;
-            target[target_position] = item.to_owned();
-        }
-        target
+    pub fn zip_over_map(
+        &self,
+        r: &Ortho,
+        mapping: &BTreeMap<String, String>,
+        shift_axis: String,
+    ) -> BTreeMap<Bag<String>, String> {
+        let new_shift_axis = self.get_corresponding_word(mapping, &&r, &shift_axis);
+        let right_column = get_end(r, new_shift_axis.clone());
+        let shifted: BTreeMap<Bag<String>, String> = right_column
+            .into_iter()
+            .map(|(k, v)| (k.add(new_shift_axis.clone()), v))
+            .collect();
+        let mapped = shifted.into_iter().map(|(k, v)| {
+            (
+                map_location(
+                    &mapping
+                        .iter()
+                        .map(|(key, value)| (value.clone(), key.clone()))
+                        .collect(),
+                    &k,
+                ),
+                v,
+            )
+        });
+        let combined: BTreeMap<Bag<String>, String> = self
+            .location_to_word
+            .clone()
+            .into_iter()
+            .chain(mapped)
+            .collect();
+        combined
     }
 
     #[allow(dead_code)]
     fn zip_over(&self, r: &Ortho, corr: &[(String, String)], dir: String) -> Ortho {
-        let new_r = self.apply_correspondence(corr, r);
-        let dir_pos = self.get_one_hot(&dir);
-        let positions_to_keep = self.get_indices_maxing_position(dir_pos);
-        let mut elements_to_keep = positions_to_keep
-            .iter()
-            .map(|i| new_r[*i].clone())
-            .rev()
-            .collect_vec();
-        let mut new_coords = self.shape.clone();
-        new_coords[dir_pos] += 1;
-
-        let target_indices = index_array(&new_coords);
-        let left_indices = index_array(&self.shape);
-        let mut target = vec!["".to_string(); target_indices.len()];
-        for (pos, idx) in left_indices.iter().enumerate() {
-            let target_index = target_indices
-                .iter()
-                .find_position(|x| x == &idx)
-                .unwrap()
-                .0;
-            target[target_index] = self.contents[pos].clone();
-        }
-        for (index, item) in target.clone().iter().enumerate() {
-            if item == &"".to_string() {
-                target[index] = elements_to_keep.pop().unwrap()
-            }
-        }
+        // todo for each calculation consider tracking instead.
+        let forward = self.zip_over_map(r, &corr.into_iter().cloned().collect(), dir.clone());
         Ortho {
-            contents: target,
-            shape: new_coords,
+            shells: combine_shells(&self.shells, &r.shells),
+            shape: self.calculate_shape(&dir),
+            location_to_word: forward.clone(),
+            word_to_location: Self::reverse(forward),
         }
-    }
-
-    fn get_indices_maxing_position(&self, dir_pos: usize) -> Vec<usize> {
-        let positions = index_array(&self.shape);
-
-        // this could be done in one combined pass by tracking max, index, and positions concurrently.
-        // it would be necessary to delete all positions found so far if a new max is identified.
-        let mut max = 0;
-        for pos in &positions {
-            let cur = pos[dir_pos];
-            if cur > max {
-                max = cur;
-            }
-        }
-        positions
-            .iter()
-            .enumerate()
-            .filter(|(_, x)| x[dir_pos] == max)
-            .map(|(i, _)| i)
-            .collect()
     }
 
     pub(crate) fn valid_diagonal_with(&self, r: &Ortho) -> bool {
-        let template = diagonal_template(self.shape.clone());
-        let mut left_buckets = vec![];
-        let mut right_buckets = vec![];
-        for template_bucket in template {
-            let mut left_bucket = HashSet::new();
-            let mut right_bucket = HashSet::new();
-
-            for location in template_bucket {
-                left_bucket.insert(self.contents[location].clone());
-                right_bucket.insert(r.contents[location].clone());
-            }
-            left_buckets.push(left_bucket);
-            right_buckets.push(right_bucket);
-        }
-        left_buckets.remove(0);
-        right_buckets.pop();
+        let left_buckets = &self.shells[1..];
+        let right_buckets = &r.shells[..r.shells.len() - 1];
 
         for (left_bucket, right_bucket) in left_buckets.iter().zip(right_buckets) {
-            if !left_bucket.is_disjoint(&right_bucket) {
+            if !left_bucket.is_disjoint(right_bucket) {
                 return false;
             }
         }
-        return true;
+
+        true
+    }
+
+    fn get_corresponding_word(
+        &self,
+        correspondence: &BTreeMap<String, String>,
+        other_ortho: &&&Ortho,
+        self_word: &String,
+    ) -> String {
+        let location = &self.word_to_location[self_word];
+        let target_location = map_location(&correspondence, &location);
+
+        other_ortho.location_to_word[&target_location].clone()
+    }
+
+    fn calculate_shape(&self, dir: &str) -> Bag<usize> {
+        let length = self.axis_length(dir.to_string()) + 1;
+        self.shape.clone().add(length + 1).remove(length)
+    }
+
+    pub fn axis_length(&self, name: String) -> usize {
+        self.location_to_word
+            .keys()
+            .max_by(|left, right| left.count(&name).cmp(&right.count(&name)))
+            .expect("no empty orthos")
+            .count(&name)
     }
 }
 
-fn map_coords(moves: &HashMap<usize, usize>, coords: &[usize]) -> Vec<usize> {
-    let mut target = vec![0; coords.len()];
-    for (k, v) in moves {
-        target[*v] = coords[*k];
-    }
-    target
-}
-
-#[memoize]
-fn diagonal_template(shape: Vec<usize>) -> Vec<HashSet<usize>> {
-    let index_array = index_array(&shape);
-    let max_distance = index_array.last().unwrap().iter().sum::<usize>();
-    let mut ans = vec![HashSet::new(); max_distance + 1];
-
-    for (i, index) in index_array.iter().enumerate() {
-        let distance: usize = index.iter().sum();
-        ans[distance].insert(i);
-    }
-
-    ans
-}
-
-fn index_array(dims: &[usize]) -> Vec<Vec<usize>> {
-    cartesian_product(dims.iter().map(|x| (0..*x).collect()).collect())
-}
-
-fn partial_cartesian<T: Clone>(a: Vec<Vec<T>>, b: Vec<T>) -> Vec<Vec<T>> {
-    a.into_iter()
-        .flat_map(|xs| {
-            b.iter()
-                .cloned()
-                .map(|y| {
-                    let mut vec = xs.clone();
-                    vec.push(y);
-                    vec
-                })
-                .collect::<Vec<_>>()
-        })
+fn get_end(r: &Ortho, shift_axis: String) -> BTreeMap<Bag<String>, String> {
+    let axis_length = r.axis_length(shift_axis.clone());
+    r.location_to_word
+        .clone()
+        .into_iter()
+        .filter(|(k, _v)| k.count(&shift_axis) == axis_length)
         .collect()
 }
 
-fn cartesian_product<T: Clone>(lists: Vec<Vec<T>>) -> Vec<Vec<T>> {
-    match lists.split_first() {
-        Some((first, rest)) => {
-            let init: Vec<Vec<T>> = first.iter().cloned().map(|n| vec![n]).collect();
+fn combine_shells(l: &Vec<BTreeSet<String>>, r: &Vec<BTreeSet<String>>) -> Vec<BTreeSet<String>> {
+    let empty_set = BTreeSet::new();
 
-            rest.iter()
-                .cloned()
-                .fold(init, |vec, list| partial_cartesian(vec, list))
-        }
-        None => {
-            vec![]
-        }
-    }
+    l.iter()
+        .zip(std::iter::once(&empty_set).chain(r.iter()))
+        .map(|(left_bucket, right_bucket)| left_bucket.union(right_bucket).cloned().collect())
+        .chain(std::iter::once(r.last().unwrap().clone()))
+        .collect()
 }
 
-impl PartialEq for Ortho {
-    // todo override eq for shape
-    fn eq(&self, other: &Self) -> bool {
-        let lhs_shape = self.shape.iter().sorted().collect_vec();
-        let rhs_shape = other.shape.iter().sorted().collect_vec();
-        if lhs_shape != rhs_shape {
-            return false;
-        }
-
-        let template = diagonal_template(self.shape.clone());
-        for template_bucket in template {
-            let mut left_bucket = HashSet::new();
-            let mut right_bucket = HashSet::new();
-
-            for location in template_bucket {
-                left_bucket.insert(self.contents[location].clone());
-                right_bucket.insert(other.contents[location].clone());
-            }
-
-            if left_bucket != right_bucket {
-                return false;
-            }
-        }
-        true
-    }
+fn shift_location(shift_axis: &str, k: &Bag<String>) -> Bag<String> {
+    k.to_owned().add(shift_axis.to_string())
 }
 
-impl std::hash::Hash for Ortho {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let lhs_shape = self.shape.iter().collect::<HashSet<_>>();
-        let template = diagonal_template(self.shape.clone());
-        for template_bucket in template.clone() {
-            let mut left_bucket = HashSet::new();
-
-            for location in template_bucket {
-                left_bucket.insert(self.contents[location].clone());
-            }
-        }
-        for bucket in template {
-            let mut sorted = bucket.iter().collect_vec();
-            sorted.sort();
-
-            sorted.hash(state);
-        }
-
-        let mut sorted = lhs_shape.iter().collect_vec();
-        sorted.sort();
-
-        sorted.hash(state);
-    }
+fn map_location(old_axis_to_new_axis: &BTreeMap<String, String>, k: &Bag<String>) -> Bag<String> {
+    k.to_owned()
+        .into_iter()
+        .map(|(strm, count)| (old_axis_to_new_axis[&strm].clone(), count))
+        .collect()
 }
 
 #[cfg(test)]
@@ -319,7 +255,7 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::ortho::Ortho;
+    use crate::{bag::Bag, ortho::Ortho};
 
     #[test]
     fn test_hop() {
@@ -367,14 +303,15 @@ mod tests {
             res.get_hop(),
             vec!["b".to_string(), "c".to_string(), "e".to_string()]
         );
+        dbg!(&res);
         assert_eq!(res.dimensionality(), 3);
-        assert_eq!(res.shape, vec![2, 2, 2]);
+        assert_eq!(res.shape, Bag::from_iter(vec![2, 2, 2]));
         assert_eq!(
             res.contents(),
             vec![
                 "d".to_string(),
-                "g".to_string(),
                 "f".to_string(),
+                "g".to_string(),
                 "h".to_string()
             ]
         );
@@ -385,15 +322,11 @@ mod tests {
         // a b  +  b d   a b e
         // c d     e f   c d f
         // combine mapping b=e, c=d along b axis
-        // [a   b  c d] + [b   e  d  f] = [a  b   e  c  d  f]
-        // [00 01 10 11]  [00 01 10 11]   [00 01 02 10 11 12]
-        // algorithm:
-        // LHS stays put in terms of its index array
-        // RHS:
-        // - scramble the RHS to be in the same coordinate system as the LHS using the mapping like you're going to zip up. Use dims of LHS for RHS once this is done.
-        // - find out which coordinate position the dir points to. Find the elements that max that value in the RHS (in this case, second position is b and max value is 1)
-        // - bump the coordinate from the direction. Get one hot on the target on LHS and bump that index in dims from LHS
-        // Finally - create an empty with the target dims. Insert LHS and RHS. Make sure dims are in the right order and one is bumped.
+        // 0 1 2
+        // 1 2 3
+        // [ {a}, {b, c}, {d} ]
+        // [         {b}, {d, e}, {f} ]
+        // [ {a}, {b, c}, {d, e}, {f} ]
 
         let l = Ortho::new(
             "a".to_string(),
@@ -417,10 +350,10 @@ mod tests {
         assert_eq!(res.origin(), &"a".to_string());
         assert_eq!(res.get_hop(), vec!["b".to_string(), "c".to_string()]);
         assert_eq!(res.dimensionality(), 2);
-        assert_eq!(res.shape, vec![2, 3]);
+        assert_eq!(res.shape, Bag::from_iter(vec![2, 3]));
         assert_eq!(
             res.contents(),
-            vec!["e".to_string(), "d".to_string(), "f".to_string()]
+            vec!["d".to_string(), "e".to_string(), "f".to_string()]
         );
     }
 
@@ -617,7 +550,7 @@ mod tests {
         abcd.hash(&mut lhs_hasher);
         let mut rhs_hasher = DefaultHasher::new();
         gbcd.hash(&mut rhs_hasher);
-        assert_eq!(lhs_hasher.finish(), rhs_hasher.finish());
+        assert_ne!(lhs_hasher.finish(), rhs_hasher.finish());
     }
 
     #[test]

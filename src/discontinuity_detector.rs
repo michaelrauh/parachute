@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use itertools::{iproduct, Itertools};
 
+use crate::bag::Bag;
 use crate::color::Color;
 use crate::line::Line;
 use crate::ortho::Ortho;
@@ -138,7 +139,7 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn ortho_left_of(&self, center_line: &Line, shape: &Vec<usize>) -> Vec<(Ortho, Color)> {
+    fn ortho_left_of(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<(Ortho, Color)> {
         let uncolored_orthos = self.uncolored_ortho_left(center_line, shape);
 
         uncolored_orthos
@@ -165,7 +166,7 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn ortho_right_of(&self, center_line: &Line, shape: &Vec<usize>) -> Vec<(Ortho, Color)> {
+    fn ortho_right_of(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<(Ortho, Color)> {
         let uncolored_orthos = self.uncolored_ortho_right(center_line, shape);
 
         uncolored_orthos
@@ -174,7 +175,7 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn uncolored_ortho_left(&self, center_line: &Line, shape: &Vec<usize>) -> Vec<Ortho> {
+    fn uncolored_ortho_left(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<Ortho> {
         self.source
             .square_left_of(center_line)
             .iter()
@@ -202,7 +203,7 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn uncolored_ortho_right(&self, center_line: &Line, shape: &Vec<usize>) -> Vec<Ortho> {
+    fn uncolored_ortho_right(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<Ortho> {
         self.source
             .ortho_right_of(center_line)
             .iter()

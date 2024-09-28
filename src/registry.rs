@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::bag::Bag;
 use crate::{book_helper::Book, line::Line, ortho::Ortho};
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
@@ -18,8 +19,8 @@ impl Registry {
         Self::from_book(&Book::book_from_text(filename, text, number))
     }
 
-    pub(crate) fn count_by_shape(&self) -> Vec<(Vec<usize>, usize)> {
-        let mut coll: HashMap<Vec<usize>, usize> = HashMap::default();
+    pub(crate) fn count_by_shape(&self) -> Vec<(Bag<usize>, usize)> {
+        let mut coll: HashMap<Bag<usize>, usize> = HashMap::default();
 
         for o in self.squares.iter() {
             let count = coll.entry(o.shape.clone()).or_default();
@@ -215,13 +216,13 @@ impl Registry {
 #[cfg(test)]
 mod tests {
 
-    use crate::{folder::single_process, registry::Registry};
+    use crate::{bag::Bag, folder::single_process, registry::Registry};
 
     #[test]
     fn test_count_by_shape() {
         let r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
         let res = single_process(&r);
 
-        assert_eq!(res.count_by_shape(), vec![(vec![2, 2], 1)])
+        assert_eq!(res.count_by_shape(), vec![(Bag::from_iter(vec![2, 2]), 1)])
     }
 }
