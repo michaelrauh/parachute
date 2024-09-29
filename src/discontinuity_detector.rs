@@ -85,65 +85,53 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    pub(crate) fn o_l_o_discontinuities(&self) -> impl Iterator<Item = (Ortho, Line, Ortho)> + '_ {
-        let centers = self.centers().to_owned();
-        let of = centers.len();
+    pub(crate) fn o_l_o_discontinuities<'a>(&'a self) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
+        let centers = self.centers();
+    
         let left_shapes = self
             .source
             .count_by_shape()
-            .map(|(s, _c)| s.clone())
+            .map(|(s, _c)| s)
             .collect_vec();
-
+    
         let right_shapes = self
             .target
             .count_by_shape()
-            .map(|(s, _c)| s.clone())
+            .map(|(s, _c)| s)
             .collect_vec();
-
+    
         let shapes = left_shapes
             .into_iter()
             .filter(move |s| right_shapes.contains(s));
-
-        shapes.flat_map(move |shape| {
-            centers
-                .clone()
-                .into_iter()
-                .enumerate()
-                .flat_map(move |(i, (center_line, center_color))| {
-                    dbg!(i, of);
-                    let lhss = self.ortho_left_of(&center_line, &shape);
-                    let rhss = self.ortho_right_of(&center_line, &shape);
-
+    
+        shapes
+            .flat_map(move |shape| {
+                let centers = centers.clone();
+                centers.iter().flat_map(move |(center_line, center_color)| {
+                    let lhss = self.ortho_left_of(center_line, shape);
+                    let rhss = self.ortho_right_of(center_line, shape);
+    
                     match center_color {
-                        Color::Black => {
-                            self.match_by_discontinuity_black_o_l_o(&center_line, lhss, rhss)
-                        }
-                        Color::Red => {
-                            self.match_by_discontinuity_red_o_l_o(&center_line, lhss, rhss)
-                        }
-                        Color::Both => {
-                            self.match_by_discontinuity_both_o_l_o(&center_line, lhss, rhss)
-                        }
+                        Color::Black => self.match_by_discontinuity_black_o_l_o(center_line, lhss, rhss),
+                        Color::Red => self.match_by_discontinuity_red_o_l_o(center_line, lhss, rhss),
+                        Color::Both => self.match_by_discontinuity_both_o_l_o(center_line, lhss, rhss),
                     }
-                })
-                .filter(|(l, _c, r)| l.valid_diagonal_with(r))
-        })
-    }
-
-    fn centers(&self) -> Vec<(Line, Color)> {
-        self.lines
-            .iter()
-            .map(|(l, r)| (l.clone(), r.clone()))
+                }).collect::<Vec<_>>()
+            })
+            .filter(|(l, _c, r)| l.valid_diagonal_with(r))
             .collect()
     }
+    
+    fn centers<'a>(&'a self) -> Vec<(&'a Line, &'a Color)> {
+        self.lines.iter().collect()
+    }    
 
-    fn ortho_left_of(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<(Ortho, Color)> {
+    fn ortho_left_of<'a>(&'a self, center_line: &Line, shape: &'a Bag<usize>) -> impl Iterator<Item = (&'a Ortho, &'a Color)> {
         let uncolored_orthos = self.uncolored_ortho_left(center_line, shape);
 
         uncolored_orthos
             .into_iter()
-            .map(|o| (o.clone(), self.orthos[o].clone()))
-            .collect()
+            .map(|o| (o, &self.orthos[o]))
     }
 
     fn line_left_of(&self, center_line: &Line) -> Vec<(Line, Color)> {
@@ -164,21 +152,18 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn ortho_right_of(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<(Ortho, Color)> {
+    fn ortho_right_of<'a>(&'a self, center_line: &Line, shape: &'a Bag<usize>) -> impl Iterator<Item = (&'a Ortho, &'a Color)> {
         let uncolored_orthos = self.uncolored_ortho_right(center_line, shape);
 
         uncolored_orthos
-            .iter()
-            .map(|o| (o.clone(), self.orthos[o].clone()))
-            .collect()
+            .map(move |o| (o, &self.orthos[o]))
     }
 
-    fn uncolored_ortho_left(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<&Ortho> {
+    fn uncolored_ortho_left<'a>(&'a self, center_line: &Line, shape: &'a Bag<usize>) -> impl Iterator<Item = &'a Ortho> + 'a {
         self.source
             .square_left_of(center_line)
             .chain(self.target.square_left_of(center_line))
-            .filter(|o| &o.shape == shape)
-            .collect()
+            .filter(move |o| &o.shape == shape)
     }
 
     fn uncolored_line_left(&self, center_line: &Line) -> Vec<Line> {
@@ -197,21 +182,23 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn uncolored_ortho_right(&self, center_line: &Line, shape: &Bag<usize>) -> Vec<Ortho> {
+    fn uncolored_ortho_right<'a>(
+        &'a self,
+        center_line: &Line,
+        shape: &'a Bag<usize>,
+    ) -> impl Iterator<Item = &'a Ortho> + 'a {
         self.source
             .ortho_right_of(center_line)
             .chain(self.target.ortho_right_of(center_line))
-            .filter(|o| &o.shape == shape)
-            .cloned()
-            .collect()
+            .filter(move |o| &o.shape == shape)
     }
-
-    fn match_by_discontinuity_black_o_l_o(
+    
+    fn match_by_discontinuity_black_o_l_o<'a>(
         &self,
-        center_line: &Line,
-        lhss: Vec<(Ortho, Color)>,
-        rhss: Vec<(Ortho, Color)>,
-    ) -> Vec<(Ortho, Line, Ortho)> {
+        center_line: &'a Line,
+        lhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+        rhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+    ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
         // | (Color::Red, Color::Black, Color::Black)
         // | (Color::Red, Color::Black, Color::Both)
         // | (Color::Red, Color::Black, Color::Red)
@@ -221,12 +208,12 @@ impl DiscontinuityDetector {
         find_discontinuity_with_color(lhss, rhss, center_line, Color::Red)
     }
 
-    fn match_by_discontinuity_red_o_l_o(
+    fn match_by_discontinuity_red_o_l_o<'a>(
         &self,
-        center_line: &Line,
-        lhss: Vec<(Ortho, Color)>,
-        rhss: Vec<(Ortho, Color)>,
-    ) -> Vec<(Ortho, Line, Ortho)> {
+        center_line: &'a Line,
+        lhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+        rhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+    ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
         // | (Color::Black, Color::Red, Color::Black)
         // | (Color::Black, Color::Red, Color::Red)
         // | (Color::Black, Color::Red, Color::Both)
@@ -235,35 +222,38 @@ impl DiscontinuityDetector {
         find_discontinuity_with_color(lhss, rhss, center_line, Color::Black)
     }
 
-    fn match_by_discontinuity_both_o_l_o(
+    fn match_by_discontinuity_both_o_l_o<'a>(
         &self,
-        center_line: &Line,
-        lhss: Vec<(Ortho, Color)>,
-        rhss: Vec<(Ortho, Color)>,
-    ) -> Vec<(Ortho, Line, Ortho)> {
+        center_line: &'a Line,
+        lhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+        rhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+    ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
         // | (Color::Black, Color::Both, Color::Red)
         // | (Color::Red, Color::Both, Color::Black)
-        iproduct!(
+
+        let lhss = lhss.collect_vec();
+        let rhss = rhss.collect_vec();
+        let firsts = iproduct!(
             lhss.iter()
-                .filter(|(_, color)| { color == &Color::Black })
-                .map(|(o, _)| o.clone()),
+                .filter(|(_, color)| { color == &&Color::Black })
+                .map(|(o, _)| o),
             rhss.iter()
-                .filter(|(_, color)| { color == &Color::Red })
-                .map(|(o, _)| o.clone())
+                .filter(|(_, color)| { **color == Color::Red })
+                .map(|(o, _)| o)
         )
-        .map(|(l, r)| (l, center_line.to_owned(), r))
-        .chain(
+        .map(|(l, r)| (l, center_line, r));
+
+        let seconds = 
             iproduct!(
                 lhss.iter()
-                    .filter(|(_, color)| { color == &Color::Red })
-                    .map(|(o, _)| o.clone()),
+                    .filter(|(_, color)| { color == &&Color::Red })
+                    .map(|(o, _)| o),
                 rhss.iter()
-                    .filter(|(_, color)| { color == &Color::Black })
-                    .map(|(o, _)| o.clone())
+                    .filter(|(_, color)| { color == &&Color::Black })
+                    .map(|(o, _)| o)
             )
-            .map(|(l, r)| (l, center_line.to_owned(), r)),
-        )
-        .collect_vec()
+            .map(|(l, r)| (l, center_line, r));
+        firsts.chain(seconds).map(|(l, c, r)| (*l, c, *r)).collect_vec()
     }
 
     fn match_by_discontinuity_black_l_l_l(
@@ -354,29 +344,31 @@ fn find_discontinuity_with_color_lll(
     .collect_vec()
 }
 
-fn find_discontinuity_with_color(
-    lhss: Vec<(Ortho, Color)>,
-    rhss: Vec<(Ortho, Color)>,
-    center_line: &Line,
+fn find_discontinuity_with_color<'a>(
+    lhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+    rhss: impl Iterator<Item = (&'a Ortho, &'a Color)> + 'a,
+    center_line: &'a Line,
     other_color: Color,
-) -> Vec<(Ortho, Line, Ortho)> {
+) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
+    let lhss: Vec<(&Ortho, &Color)> = lhss.collect_vec();
+    let rhss: Vec<(&Ortho, &Color)> = rhss.collect_vec();
     iproduct!(
         lhss.iter()
-            .filter(|(_, color)| { color == &other_color })
-            .map(|(o, _)| o.clone()),
-        rhss.iter().map(|(o, _)| o.clone())
+            .filter(|(_, color)| { color == &&other_color })
+            .map(|(o, _)| o),
+        rhss.iter().map(|(o, _)| o)
     )
-    .map(|(l, r)| (l, center_line.to_owned(), r))
+    .map(|(l, r)| (*l, center_line, *r))
     .chain(
         iproduct!(
             lhss.iter()
-                .filter(|(_, color)| { color != &other_color })
-                .map(|(o, _)| o.clone()),
+                .filter(|(_, color)| { color != &&other_color })
+                .map(|(o, _)| o),
             rhss.iter()
-                .filter(|(_, color)| { color == &other_color })
-                .map(|(o, _)| o.clone())
+                .filter(|(_, color)| { color == &&other_color })
+                .map(|(o, _)| o)
         )
-        .map(|(l, r)| (l, center_line.to_owned(), r)),
+        .map(|(l, r)| (*l, center_line, *r)),
     )
     .collect_vec()
 }

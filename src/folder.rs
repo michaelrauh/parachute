@@ -77,11 +77,9 @@ fn find_additional_squares_from_l_l_l(
         .collect_vec()
 }
 
-fn find_additional_squares_from_o_l_o<I>(combined_book: &Registry, check_back: I) -> Vec<Ortho>
-where
-    I: Iterator<Item = (Ortho, Line, Ortho)>,
+fn find_additional_squares_from_o_l_o(combined_book: &Registry, check_back: Vec<(&Ortho, &Line, &Ortho)>) -> Vec<Ortho>
 {
-    check_back
+    check_back.iter()
         .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r))
         .collect_vec()
 }
