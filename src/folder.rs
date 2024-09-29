@@ -52,7 +52,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
     new_squares
         .iter()
         .flat_map(|ortho| {
-            r.forward(ortho.origin().to_string())
+            r.forward(ortho.origin())
                 .iter()
                 .flat_map(|second| {
                     r.squares_with_origin(second)
@@ -205,9 +205,9 @@ fn ffbb(book: &Registry) -> Vec<Ortho> {
     for line in book.pairs.clone() {
         let a = line.first;
         let b = line.second;
-        for d in book.forward(b.clone()) {
-            for c in book.backward(d.clone()) {
-                if b != c && book.backward(c.clone()).contains(&a) {
+        for d in book.forward(&b) {
+            for c in book.backward(d) {
+                if &b != c && book.backward(c).contains(&a) {
                     res.push(Ortho::new(
                         a.to_string(),
                         b.to_string(),

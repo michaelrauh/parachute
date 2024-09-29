@@ -77,7 +77,7 @@ impl Ortho {
             &other_ortho,
             &self_word,
         );
-        registry.forward(self_word).contains(&corresponding_word)
+        registry.forward(&self_word).contains(&corresponding_word)
     }
 
     fn reverse(btree: BTreeMap<Bag<String>, String>) -> BTreeMap<String, Bag<String>> {

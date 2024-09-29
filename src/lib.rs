@@ -9,12 +9,12 @@ use s3_helper::Bucket;
 
 use crate::registry::Registry;
 
+pub mod bag;
 mod book_helper;
 pub mod color;
 pub mod discontinuity_detector;
 mod file_helper;
 pub mod folder;
-pub mod bag;
 pub mod line;
 mod ortho;
 pub mod registry;
@@ -90,7 +90,7 @@ pub async fn process(endpoint: String, location: String) {
                     .unwrap_or_default();
                 let target_count = target_answer
                     .count_by_shape()
-                    .find(|(s,_c)| *s == &shape)
+                    .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
                     .unwrap_or_default();
                 let print_shape = shape.iter().join(",");

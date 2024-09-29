@@ -21,7 +21,6 @@ impl DiscontinuityDetector {
         let union = &source_answer.clone().union(&target_answer);
         let lines = union
             .lines()
-            .iter()
             .cloned()
             .map(|i| {
                 (
@@ -32,7 +31,6 @@ impl DiscontinuityDetector {
             .collect();
         let orthos = union
             .orthos()
-            .iter()
             .cloned()
             .map(|i| {
                 (
@@ -91,18 +89,20 @@ impl DiscontinuityDetector {
         let centers = self.centers().to_owned();
         let of = centers.len();
         let left_shapes = self
-        .source
-        .count_by_shape()
-        .map(|(s, _c)| s.clone())
-        .collect_vec();
+            .source
+            .count_by_shape()
+            .map(|(s, _c)| s.clone())
+            .collect_vec();
 
         let right_shapes = self
-        .target
-        .count_by_shape()
-        .map(|(s, _c)| s.clone())
-        .collect_vec();
+            .target
+            .count_by_shape()
+            .map(|(s, _c)| s.clone())
+            .collect_vec();
 
-        let shapes = left_shapes.into_iter().filter(move |s| right_shapes.contains(s));
+        let shapes = left_shapes
+            .into_iter()
+            .filter(move |s| right_shapes.contains(s));
 
         shapes.flat_map(move |shape| {
             centers
@@ -184,8 +184,7 @@ impl DiscontinuityDetector {
     fn uncolored_line_left(&self, center_line: &Line) -> Vec<Line> {
         self.source
             .line_left_of(center_line)
-            .iter()
-            .chain(&self.target.line_left_of(center_line))
+            .chain(self.target.line_left_of(center_line))
             .cloned()
             .collect()
     }
@@ -193,8 +192,7 @@ impl DiscontinuityDetector {
     fn uncolored_line_right(&self, center_line: &Line) -> Vec<Line> {
         self.source
             .line_right_of(center_line)
-            .iter()
-            .chain(&self.target.line_right_of(center_line))
+            .chain(self.target.line_right_of(center_line))
             .cloned()
             .collect()
     }
@@ -329,7 +327,12 @@ impl DiscontinuityDetector {
     }
 }
 
-fn find_discontinuity_with_color_lll(lhss: Vec<(Line, Color)>, rhss: Vec<(Line, Color)>, center_line: &Line, other_color: Color) -> Vec<(Line, Line, Line)> {
+fn find_discontinuity_with_color_lll(
+    lhss: Vec<(Line, Color)>,
+    rhss: Vec<(Line, Color)>,
+    center_line: &Line,
+    other_color: Color,
+) -> Vec<(Line, Line, Line)> {
     iproduct!(
         lhss.iter()
             .filter(|(_, color)| { color == &other_color })
@@ -351,7 +354,12 @@ fn find_discontinuity_with_color_lll(lhss: Vec<(Line, Color)>, rhss: Vec<(Line, 
     .collect_vec()
 }
 
-fn find_discontinuity_with_color(lhss: Vec<(Ortho, Color)>, rhss: Vec<(Ortho, Color)>, center_line: &Line, other_color: Color) -> Vec<(Ortho, Line, Ortho)> {
+fn find_discontinuity_with_color(
+    lhss: Vec<(Ortho, Color)>,
+    rhss: Vec<(Ortho, Color)>,
+    center_line: &Line,
+    other_color: Color,
+) -> Vec<(Ortho, Line, Ortho)> {
     iproduct!(
         lhss.iter()
             .filter(|(_, color)| { color == &other_color })
