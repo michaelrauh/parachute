@@ -69,7 +69,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
 
 fn find_additional_squares_from_l_l_l(
     combined_book: &Registry,
-    check_back: Vec<(Line, Line, Line)>,
+    check_back: Vec<(&Line, &Line, &Line)>,
 ) -> Vec<Ortho> {
     check_back
         .iter()
