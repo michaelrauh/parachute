@@ -3,7 +3,6 @@ use std::{
     iter,
 };
 
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::bag::Bag;
@@ -44,8 +43,8 @@ impl Ortho {
         }
     }
 
-    pub fn get_hop(&self) -> Vec<String> {
-        self.shells[1].iter().cloned().collect_vec()
+    pub fn get_hop<'a>(&'a self) -> impl Iterator<Item = &'a String> + 'a {
+        self.shells[1].iter()
     }
 
     pub(crate) fn origin(&self) -> &String {
@@ -56,13 +55,11 @@ impl Ortho {
         self.shape.len()
     }
 
-    pub(crate) fn contents(&self) -> Vec<String> {
+    pub(crate) fn contents<'a>(&'a self) -> impl Iterator<Item = &'a String> + 'a {
         self.shells
             .iter()
             .skip(2)
             .flat_map(|set| set.iter())
-            .cloned()
-            .collect()
     }
 
     pub(crate) fn connection_works(
@@ -70,11 +67,12 @@ impl Ortho {
         self_word: String,
         registry: &crate::registry::Registry,
         correspondence: &[(String, String)],
-        other_ortho: &&Ortho,
+        other_ortho: &Ortho,
     ) -> bool {
+        let correspondence_map: BTreeMap<String, String> = correspondence.iter().cloned().collect();
         let corresponding_word = self.get_corresponding_word(
-            &correspondence.into_iter().cloned().collect(),
-            &other_ortho,
+            &correspondence_map,
+            other_ortho,
             &self_word,
         );
         registry.forward(&self_word).contains(&corresponding_word)
@@ -89,7 +87,8 @@ impl Ortho {
     }
 
     pub(crate) fn zip_up(&self, r: &Ortho, correspondence: &[(String, String)]) -> Ortho {
-        let forward = self.zip_up_map(r, &correspondence.into_iter().cloned().collect());
+        let correspondence_map: BTreeMap<String, String> = correspondence.iter().cloned().collect();
+        let forward = self.zip_up_map(r, &correspondence_map);
         Ortho {
             shells: combine_shells(&self.shells, &r.shells),
             shape: self.shape.iter().cloned().chain(vec![2]).collect(),
@@ -139,19 +138,20 @@ impl Ortho {
         mapping: &BTreeMap<String, String>,
         shift_axis: String,
     ) -> BTreeMap<Bag<String>, String> {
-        let new_shift_axis = self.get_corresponding_word(mapping, &&r, &shift_axis);
+        let new_shift_axis = self.get_corresponding_word(mapping, r, &shift_axis);
         let right_column = get_end(r, new_shift_axis.clone());
         let shifted: BTreeMap<Bag<String>, String> = right_column
             .into_iter()
             .map(|(k, v)| (k.add(new_shift_axis.clone()), v))
             .collect();
+        let mapping_reversed: BTreeMap<String, String> = mapping
+            .iter()
+            .map(|(key, value)| (value.clone(), key.clone()))
+            .collect();
         let mapped = shifted.into_iter().map(|(k, v)| {
             (
                 map_location(
-                    &mapping
-                        .iter()
-                        .map(|(key, value)| (value.clone(), key.clone()))
-                        .collect(),
+                    &mapping_reversed,
                     &k,
                 ),
                 v,
@@ -168,8 +168,8 @@ impl Ortho {
 
     #[allow(dead_code)]
     fn zip_over(&self, r: &Ortho, corr: &[(String, String)], dir: String) -> Ortho {
-        // todo for each calculation consider tracking instead.
-        let forward = self.zip_over_map(r, &corr.into_iter().cloned().collect(), dir.clone());
+        let correspondence_map: BTreeMap<String, String> = corr.iter().cloned().collect();
+        let forward = self.zip_over_map(r, &correspondence_map, dir.clone());
         Ortho {
             shells: combine_shells(&self.shells, &r.shells),
             shape: self.calculate_shape(&dir),
@@ -194,7 +194,7 @@ impl Ortho {
     fn get_corresponding_word(
         &self,
         correspondence: &BTreeMap<String, String>,
-        other_ortho: &&&Ortho,
+        other_ortho: &Ortho,
         self_word: &String,
     ) -> String {
         let location = &self.word_to_location[self_word];
@@ -255,6 +255,8 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
+    use itertools::Itertools;
+
     use crate::{bag::Bag, ortho::Ortho};
 
     #[test]
@@ -265,7 +267,8 @@ mod tests {
             "c".to_string(),
             "d".to_string(),
         );
-        assert_eq!(vec!["b".to_string(), "c".to_string()], o.get_hop())
+        let hop: Vec<String> = o.get_hop().cloned().collect();
+        assert_eq!(vec!["b".to_string(), "c".to_string()], hop);
     }
 
     #[test]
@@ -299,15 +302,16 @@ mod tests {
         let res = l.zip_up(&r, &corr);
 
         assert_eq!(res.origin(), &"a".to_string());
+        let hop: Vec<String> = res.get_hop().cloned().collect();
         assert_eq!(
-            res.get_hop(),
+            hop,
             vec!["b".to_string(), "c".to_string(), "e".to_string()]
         );
-        dbg!(&res);
         assert_eq!(res.dimensionality(), 3);
         assert_eq!(res.shape, Bag::from_iter(vec![2, 2, 2]));
+        let contents: Vec<String> = res.contents().cloned().collect();
         assert_eq!(
-            res.contents(),
+            contents,
             vec![
                 "d".to_string(),
                 "f".to_string(),
@@ -348,11 +352,11 @@ mod tests {
 
         let res = l.zip_over(&r, &corr, dir);
         assert_eq!(res.origin(), &"a".to_string());
-        assert_eq!(res.get_hop(), vec!["b".to_string(), "c".to_string()]);
+        assert_eq!(res.get_hop().cloned().collect_vec(), vec!["b".to_string(), "c".to_string()]);
         assert_eq!(res.dimensionality(), 2);
         assert_eq!(res.shape, Bag::from_iter(vec![2, 3]));
         assert_eq!(
-            res.contents(),
+            res.contents().cloned().collect_vec(),
             vec!["d".to_string(), "e".to_string(), "f".to_string()]
         );
     }

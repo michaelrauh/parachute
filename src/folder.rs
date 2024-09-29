@@ -123,7 +123,6 @@ fn all_other_connections_work(
     correspondence: &[(String, String)],
 ) -> bool {
     l.contents()
-        .iter()
         .all(|left_word| l.connection_works(left_word.to_string(), registry, correspondence, &r))
 }
 
@@ -132,10 +131,11 @@ fn find_potential_correspondences(
     l: &Ortho,
     r: &Ortho,
 ) -> Vec<Vec<(String, String)>> {
-    let left_axes = l.get_hop();
-    let right_axes = r.get_hop();
+    let left_axes = l.get_hop().collect_vec();
+    let right_axes = r.get_hop().collect_vec();
     let potentials: Vec<(String, String)> = iproduct!(left_axes, right_axes)
         .filter(|(left_try, right_try)| registry.contains_line_with(left_try, right_try))
+        .map(|(left, right)| (left.to_string(), right.to_string()))
         .collect();
 
     if sufficient_axes_to_cover(&potentials, l) {
