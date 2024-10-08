@@ -59,7 +59,7 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
                         .into_iter()
                         .filter(|o| o.shape == ortho.shape)
                         .filter(|o| o.valid_diagonal_with(ortho))
-                        .map(|other| handle_connection(r, &&ortho, &&other))
+                        .map(|other| handle_connection(r, &&ortho, &&other).into_iter().flatten())
                         .flatten()
                 })
                 .collect::<Vec<_>>()
@@ -83,27 +83,31 @@ fn find_additional_squares_from_o_l_o(
 ) -> Vec<Ortho> {
     check_back
         .iter()
-        .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r))
+        .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r).into_iter().flatten())
         .collect_vec()
 }
 
-fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Vec<Ortho> {
+fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Option<Vec<Ortho>> {
     // todo make sure only base orthos are passed in, or check here
     // left: ortho with origin (for now) connected to the other (origin = a)
     // center: a-b
     // right ortho.origin = b
     // assumption: passed in orthos have the same shape
     // assumption: passed in orthos have valid diagonals
-
+    
     let potential_corresponding_axes = find_potential_correspondences(registry, l, r);
-    let ans = potential_corresponding_axes
-        .into_iter()
-        .flat_map(|correspondence| {
-            attempt_combine_up_by_corresponding_configuration(registry, l, r, correspondence)
-        })
-        .collect_vec();
+    if let Some(potential_corresponding_axes) = potential_corresponding_axes {
+        let ans = potential_corresponding_axes
+            .into_iter()
+            .flat_map(|correspondence| {
+                attempt_combine_up_by_corresponding_configuration(registry, l, r, correspondence)
+            })
+            .collect_vec();
 
-    ans
+        Some(ans)
+    } else {
+        None
+    }
 }
 
 fn attempt_combine_up_by_corresponding_configuration(
@@ -111,11 +115,11 @@ fn attempt_combine_up_by_corresponding_configuration(
     l: &Ortho,
     r: &Ortho,
     correspondence: Vec<(String, String)>,
-) -> Vec<Ortho> {
+) -> Option<Ortho> {
     if all_other_connections_work(registry, l, r, &correspondence) {
-        vec![l.zip_up(r, &correspondence)]
+        Some(l.zip_up(r, &correspondence))
     } else {
-        vec![]
+        None
     }
 }
 
@@ -133,22 +137,21 @@ fn find_potential_correspondences(
     registry: &Registry,
     l: &Ortho,
     r: &Ortho,
-) -> Vec<Vec<(String, String)>> {
+) -> Option<Vec<Vec<(String, String)>>> {
     let left_axes = l.get_hop().collect_vec();
     let right_axes = r.get_hop().collect_vec();
-    let potentials: Vec<(String, String)> = iproduct!(left_axes, right_axes)
+    let potentials: Vec<(&String, &String)> = iproduct!(left_axes, right_axes)
         .filter(|(left_try, right_try)| registry.contains_line_with(left_try, right_try))
-        .map(|(left, right)| (left.to_string(), right.to_string()))
         .collect();
 
     if sufficient_axes_to_cover(&potentials, l) {
-        combobulate_axes(potentials)
+        Some(combobulate_axes(potentials))
     } else {
-        vec![]
+        None
     }
 }
 
-fn combobulate_axes(potentials: Vec<(String, String)>) -> Vec<Vec<(String, String)>> {
+fn combobulate_axes(potentials: Vec<(&String, &String)>) -> Vec<Vec<(String, String)>> {
     let num_axes = potentials
         .iter()
         .map(|(left, _)| left)
@@ -160,17 +163,24 @@ fn combobulate_axes(potentials: Vec<(String, String)>) -> Vec<Vec<(String, Strin
         .cloned()
         .combinations(num_axes)
         .filter(|combo| {
-            let unique_lefts = combo.iter().map(|(left, _)| left).collect::<HashSet<_>>();
-            let unique_rights = combo.iter().map(|(_, right)| right).collect::<HashSet<_>>();
+            let mut unique_lefts = HashSet::with_capacity(num_axes);
+            let mut unique_rights = HashSet::with_capacity(num_axes);
+
+            for (left, right) in combo {
+                unique_lefts.insert(left);
+                unique_rights.insert(right);
+            }
+
             unique_lefts.len() == num_axes && unique_rights.len() == num_axes
         })
+        .map(|combo| combo.into_iter().map(|(left, right)| (left.clone(), right.clone())).collect())
         .collect()
 }
 
-fn sufficient_axes_to_cover(potentials: &[(String, String)], l: &Ortho) -> bool {
+fn sufficient_axes_to_cover(potentials: &[(&String, &String)], l: &Ortho) -> bool {
     let required = l.dimensionality();
 
-    let (left, right): (HashSet<_>, HashSet<_>) = potentials
+    let (left, right): (HashSet<&String>, HashSet<&String>) = potentials
         .iter()
         .map(|(left_potential, right_potential)| (left_potential, right_potential))
         .unzip();
