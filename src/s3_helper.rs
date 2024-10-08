@@ -28,12 +28,12 @@ impl Bucket {
             .any(|b| b.name().unwrap_or_default() == self.location)
     }
 
-    pub async fn delete_chunk(&self, registry: Registry) {
+    pub async fn delete_chunk(&self, registry: &Registry) {
         self.delete_from_bucket_top_level(&("singleprocessing/".to_owned() + &registry.name))
             .await
     }
 
-    pub async fn delete_answer(&self, registry: Registry) {
+    pub async fn delete_answer(&self, registry: &Registry) {
         self.delete_from_bucket_top_level(&("doubleprocessing/".to_owned() + &registry.name))
             .await
     }
@@ -44,7 +44,7 @@ impl Bucket {
             .await
     }
 
-    pub async fn save_answer(&self, ans: Registry) {
+    pub async fn save_answer(&self, ans: &Registry) {
         let to_write = bincode::serialize(&ans).unwrap();
         let write_location = ans.name();
 

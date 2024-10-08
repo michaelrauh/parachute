@@ -56,10 +56,7 @@ impl Ortho {
     }
 
     pub(crate) fn contents<'a>(&'a self) -> impl Iterator<Item = &'a String> + 'a {
-        self.shells
-            .iter()
-            .skip(2)
-            .flat_map(|set| set.iter())
+        self.shells.iter().skip(2).flat_map(|set| set.iter())
     }
 
     pub(crate) fn connection_works(
@@ -70,11 +67,8 @@ impl Ortho {
         other_ortho: &Ortho,
     ) -> bool {
         let correspondence_map: BTreeMap<String, String> = correspondence.iter().cloned().collect();
-        let corresponding_word = self.get_corresponding_word(
-            &correspondence_map,
-            other_ortho,
-            &self_word,
-        );
+        let corresponding_word =
+            self.get_corresponding_word(&correspondence_map, other_ortho, &self_word);
         registry.forward(&self_word).contains(&corresponding_word)
     }
 
@@ -148,15 +142,9 @@ impl Ortho {
             .iter()
             .map(|(key, value)| (value.clone(), key.clone()))
             .collect();
-        let mapped = shifted.into_iter().map(|(k, v)| {
-            (
-                map_location(
-                    &mapping_reversed,
-                    &k,
-                ),
-                v,
-            )
-        });
+        let mapped = shifted
+            .into_iter()
+            .map(|(k, v)| (map_location(&mapping_reversed, &k), v));
         let combined: BTreeMap<Bag<String>, String> = self
             .location_to_word
             .clone()
@@ -303,10 +291,7 @@ mod tests {
 
         assert_eq!(res.origin(), &"a".to_string());
         let hop: Vec<String> = res.get_hop().cloned().collect();
-        assert_eq!(
-            hop,
-            vec!["b".to_string(), "c".to_string(), "e".to_string()]
-        );
+        assert_eq!(hop, vec!["b".to_string(), "c".to_string(), "e".to_string()]);
         assert_eq!(res.dimensionality(), 3);
         assert_eq!(res.shape, Bag::from_iter(vec![2, 2, 2]));
         let contents: Vec<String> = res.contents().cloned().collect();
@@ -352,7 +337,10 @@ mod tests {
 
         let res = l.zip_over(&r, &corr, dir);
         assert_eq!(res.origin(), &"a".to_string());
-        assert_eq!(res.get_hop().cloned().collect_vec(), vec!["b".to_string(), "c".to_string()]);
+        assert_eq!(
+            res.get_hop().cloned().collect_vec(),
+            vec!["b".to_string(), "c".to_string()]
+        );
         assert_eq!(res.dimensionality(), 2);
         assert_eq!(res.shape, Bag::from_iter(vec![2, 3]));
         assert_eq!(

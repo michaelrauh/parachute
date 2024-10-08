@@ -5,16 +5,24 @@ use crate::line::Line;
 use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registry::Registry};
 use itertools::{iproduct, Itertools};
 
-pub fn single_process(registry: &Registry) -> Registry {
+pub fn single_process(registry: &mut Registry) {
     let new_squares = ffbb(registry);
-    let r = registry.add(new_squares.clone());
-    fold_up_by_origin_repeatedly(r, new_squares)
+    let added_squares = registry.add(new_squares);
+    fold_up_by_origin_repeatedly(registry, added_squares)
 }
 
-pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Registry {
-    let detector = DiscontinuityDetector::new(source_answer.to_owned(), target_answer.to_owned());
+pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
+    let detector = DiscontinuityDetector::new(source_answer, target_answer);
     dbg!("unioning");
-    let both = source_answer.union(target_answer);
+    source_answer.add_lines(target_answer.pairs.iter().cloned().collect::<Vec<_>>());
+
+    source_answer.add(
+        target_answer
+            .squares
+            .clone()
+            .into_iter()
+            .collect::<Vec<_>>(),
+    );
 
     dbg!("detecting line discontinuities");
     let lll_discontinuities = detector.l_l_l_discontinuities();
@@ -22,29 +30,21 @@ pub fn merge_process(source_answer: &Registry, target_answer: &Registry) -> Regi
     dbg!("detecting ortho discontinuities");
     let olo_discontinuities = detector.o_l_o_discontinuities();
 
-    let additional_squares = find_additional_squares_from_l_l_l(&both, lll_discontinuities);
-    let more_squares = find_additional_squares_from_o_l_o(&both, olo_discontinuities);
+    let additional_squares = find_additional_squares_from_l_l_l(source_answer, lll_discontinuities);
+    let more_squares = find_additional_squares_from_o_l_o(source_answer, olo_discontinuities);
     let all_squares: Vec<Ortho> = additional_squares.into_iter().chain(more_squares).collect();
-    let r = both.add(all_squares.clone());
-    fold_up_by_origin_repeatedly(r, all_squares)
+    let added_squares = source_answer.add(all_squares);
+    fold_up_by_origin_repeatedly(source_answer, added_squares)
 }
 
-fn fold_up_by_origin_repeatedly(r: Registry, new_squares: Vec<Ortho>) -> Registry {
+fn fold_up_by_origin_repeatedly(r: &mut Registry, new_squares: Vec<Ortho>) {
     dbg!(new_squares.len());
-    std::iter::successors(
-        Some((r, new_squares)),
-        |(current_registry, current_squares)| {
-            if current_squares.is_empty() {
-                None
-            } else {
-                let folded_squares = fold_up_by_origin(current_registry, current_squares.clone());
-                Some((current_registry.add(folded_squares.clone()), folded_squares))
-            }
-        },
-    )
-    .last()
-    .unwrap()
-    .0
+    let mut current_squares = new_squares;
+
+    while !current_squares.is_empty() {
+        let folded_squares = fold_up_by_origin(r, current_squares);
+        current_squares = r.add(folded_squares);
+    }
 }
 
 fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
@@ -77,9 +77,12 @@ fn find_additional_squares_from_l_l_l(
         .collect_vec()
 }
 
-fn find_additional_squares_from_o_l_o(combined_book: &Registry, check_back: Vec<(&Ortho, &Line, &Ortho)>) -> Vec<Ortho>
-{
-    check_back.iter()
+fn find_additional_squares_from_o_l_o(
+    combined_book: &Registry,
+    check_back: Vec<(&Ortho, &Line, &Ortho)>,
+) -> Vec<Ortho> {
+    check_back
+        .iter()
         .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r))
         .collect_vec()
 }
@@ -229,11 +232,11 @@ mod tests {
 
     #[test]
     fn test_single_process_discovers_squares() {
-        let r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
-        let res = single_process(&r);
+        let mut r = Registry::from_text("a b c d. a c. b d.", "first.txt", 1);
+        single_process(&mut r);
 
         assert_eq!(
-            res.squares,
+            r.squares,
             vec![Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
@@ -250,12 +253,12 @@ mod tests {
         // a b  e f
         // c d  g h
 
-        let r = Registry::from_text(
+        let mut r = Registry::from_text(
             "a b. c d. a c. b d. e f. g h. e g. f h. a e. b f. c g. d h.",
             "first.txt",
             1,
         );
-        let res = single_process(&r);
+        single_process(&mut r);
 
         let abcd = Ortho::new(
             "a".to_string(),
@@ -276,17 +279,20 @@ mod tests {
                 ("c".to_string(), "g".to_string()),
             ],
         );
-        assert!(res.squares.contains(&expected_ortho))
+        assert!(r.squares.contains(&expected_ortho))
     }
 
     #[test]
     fn test_merge_process_discovers_squares_from_lines() {
-        let left_registry = single_process(&Registry::from_text("a b. c d.", "first.txt", 1));
-        let right_registry = single_process(&Registry::from_text("a c. b d.", "second.txt", 2));
-        let res = merge_process(&left_registry, &right_registry);
+        let mut left_registry = Registry::from_text("a b. c d.", "first.txt", 1);
+        let mut right_registry = Registry::from_text("a c. b d.", "second.txt", 2);
+
+        single_process(&mut left_registry);
+        single_process(&mut right_registry);
+        merge_process(&mut left_registry, &right_registry);
 
         assert_eq!(
-            res.squares,
+            left_registry.squares,
             vec![Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
@@ -300,15 +306,15 @@ mod tests {
 
     #[test]
     fn test_merge_process_discovers_squares_from_squares() {
-        let left_registry = single_process(&Registry::from_text(
-            "a b. c d. a c. b d. a e. b f. c g. d h.",
-            "first.txt",
-            1,
-        ));
-        let right_registry =
-            single_process(&Registry::from_text("e f. g h. e g. f h.", "second.txt", 2));
+        let mut left_registry =
+            Registry::from_text("a b. c d. a c. b d. a e. b f. c g. d h.", "first.txt", 1);
 
-        let res = merge_process(&left_registry, &right_registry);
+        let mut right_registry = Registry::from_text("e f. g h. e g. f h.", "second.txt", 2);
+        single_process(&mut left_registry);
+
+        single_process(&mut right_registry);
+
+        merge_process(&mut left_registry, &right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -328,7 +334,7 @@ mod tests {
             ],
         );
 
-        assert!(res.squares.contains(&expected_ortho))
+        assert!(left_registry.squares.contains(&expected_ortho))
     }
 
     #[test]
@@ -336,18 +342,15 @@ mod tests {
         // a b  e f
         // c d  g h
 
-        let left_registry = single_process(&Registry::from_text(
-            "a b. a c. b d. a e. b f. c g. d h.",
-            "first.txt",
-            1,
-        ));
-        let right_registry = single_process(&Registry::from_text(
-            "c d. e f. g h. e g. f h.",
-            "second.txt",
-            2,
-        ));
+        let mut left_registry =
+            Registry::from_text("a b. a c. b d. a e. b f. c g. d h.", "first.txt", 1);
 
-        let res = merge_process(&left_registry, &right_registry);
+        single_process(&mut left_registry);
+        let mut right_registry = Registry::from_text("c d. e f. g h. e g. f h.", "second.txt", 2);
+
+        single_process(&mut right_registry);
+
+        merge_process(&mut left_registry, &right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -367,6 +370,6 @@ mod tests {
             ],
         );
 
-        assert!(res.squares.contains(&expected_ortho))
+        assert!(left_registry.squares.contains(&expected_ortho))
     }
 }

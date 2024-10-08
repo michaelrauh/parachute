@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fs::read_to_string};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::read_to_string,
+};
 
 use bag::Bag;
 use book_helper::Book;
@@ -61,18 +64,18 @@ pub async fn delete(endpoint: String, location: String) {
 pub async fn process(endpoint: String, location: String) {
     let bucket = Bucket::new(endpoint, location).await;
     loop {
-        if let Some(registry) = bucket.checkout_smallest_chunk().await {
+        if let Some(mut registry) = bucket.checkout_smallest_chunk().await {
             dbg!(&registry.name);
-            let ans = single_process(&registry);
+            single_process(&mut registry);
 
-            bucket.save_answer(ans.clone()).await;
-            bucket.delete_chunk(registry).await;
+            bucket.save_answer(&registry).await;
+            bucket.delete_chunk(&registry).await;
 
-            for (shape, count) in ans.count_by_shape() {
+            for (shape, count) in registry.count_by_shape() {
                 let print_shape = shape.iter().join(",");
                 println!("{:<15}: {:>5}", print_shape, count.to_string());
             }
-        } else if let Some((source_answer, target_answer)) =
+        } else if let Some((mut source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
@@ -82,7 +85,7 @@ pub async fn process(endpoint: String, location: String) {
                 .chain(target_answer.count_by_shape().map(|(s, _c)| s))
                 .cloned()
                 .collect();
-            for shape in all_shapes {
+            for shape in all_shapes.clone() {
                 let source_count = source_answer
                     .count_by_shape()
                     .find(|(s, _c)| *s == &shape)
@@ -99,41 +102,48 @@ pub async fn process(endpoint: String, location: String) {
                     print_shape, source_count, target_count
                 );
             }
-
-            let new_answer = merge_process(&source_answer, &target_answer);
-
-            bucket.save_answer(new_answer.clone()).await;
-            bucket.delete_answer(source_answer.clone()).await;
-            bucket.delete_answer(target_answer.clone()).await;
-
-            let all_shapes: HashSet<Bag<usize>> = source_answer
-                .count_by_shape()
-                .map(|(s, _c)| s)
-                .chain(target_answer.count_by_shape().map(|(s, _c)| s))
-                .chain(new_answer.count_by_shape().map(|(s, _c)| s))
-                .cloned()
-                .collect();
+            let mut source_counts = HashMap::new();
             for shape in all_shapes {
                 let source_count = source_answer
                     .count_by_shape()
                     .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
                     .unwrap_or_default();
+                source_counts.insert(shape, source_count);
+            }
+
+            merge_process(&mut source_answer, &target_answer);
+
+            bucket.save_answer(&source_answer).await;
+            bucket.delete_answer(&source_answer).await;
+            bucket.delete_answer(&target_answer).await;
+
+            let all_shapes: HashSet<Bag<usize>> = source_answer
+                .count_by_shape()
+                .map(|(s, _c)| s)
+                .chain(target_answer.count_by_shape().map(|(s, _c)| s))
+                .chain(source_answer.count_by_shape().map(|(s, _c)| s))
+                .cloned()
+                .collect();
+            for shape in all_shapes {
                 let target_count = target_answer
                     .count_by_shape()
                     .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
                     .unwrap_or_default();
-                let new_count = new_answer
+                let new_count = source_answer
                     .count_by_shape()
                     .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
                     .unwrap_or_default();
-                let discovered = new_count - (source_count + target_count);
+                let discovered =
+                    new_count - (source_counts.get(&shape).unwrap_or(&0) + target_count);
                 let print_shape = shape.iter().join(",");
                 let equation = format!(
                     "{:>5} + {:>5} = {:>5}",
-                    source_count, target_count, new_count
+                    source_counts.get(&shape).unwrap_or(&0),
+                    target_count,
+                    new_count
                 );
                 println!(
                     "{:<15}: {:<25} ({:>2} new)",
