@@ -38,7 +38,6 @@ pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
 }
 
 fn fold_up_by_origin_repeatedly(r: &mut Registry, new_squares: Vec<Ortho>) {
-    dbg!(new_squares.len());
     let mut current_squares = new_squares;
 
     while !current_squares.is_empty() {
@@ -188,7 +187,7 @@ fn sufficient_axes_to_cover(potentials: &[(&String, &String)], l: &Ortho) -> boo
     left.len() == required && right.len() == required
 }
 
-fn handle_lines(registry: &Registry, left: &Line, center: &Line, right: &Line) -> Vec<Ortho> {
+fn handle_lines(registry: &Registry, left: &Line, center: &Line, right: &Line) -> Option<Ortho> {
     // left: a-b
     // center: a-c
     // right: c-d
@@ -200,14 +199,14 @@ fn handle_lines(registry: &Registry, left: &Line, center: &Line, right: &Line) -
     // verify b -> d
 
     if left.second != center.second && registry.contains_line_with(&left.second, &right.second) {
-        vec![Ortho::new(
+        Some(Ortho::new(
             left.first.to_string(),
             left.second.to_string(),
             right.first.clone(),
             right.second.clone(),
-        )]
+        ))
     } else {
-        vec![]
+        None
     }
 }
 

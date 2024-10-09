@@ -92,10 +92,7 @@ impl Registry {
     }
 
     pub(crate) fn contains_line_with(&self, f: &str, s: &str) -> bool {
-        self.pairs.contains(&Line {
-            first: f.to_owned(),
-            second: s.to_owned(),
-        })
+        self.forward_pairs.get(f).map_or(false, |v| v.contains(s))
     }
 
     pub fn squares_with_origin<'a>(&'a self, origin: &str) -> impl Iterator<Item = &'a Ortho> + 'a {
