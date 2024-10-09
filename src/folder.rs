@@ -48,20 +48,18 @@ fn fold_up_by_origin_repeatedly(r: &mut Registry, new_squares: Vec<Ortho>) {
 
 fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
     dbg!(new_squares.len());
+    dbg!(&new_squares.first().unwrap().shape);
     new_squares
         .iter()
         .flat_map(|ortho| {
             r.forward(ortho.origin())
                 .iter()
-                .flat_map(|second| {
+                .flat_map(move |second| {
                     r.squares_with_origin(second)
                         .into_iter()
-                        .filter(|o| o.shape == ortho.shape)
-                        .filter(|o| o.valid_diagonal_with(ortho))
-                        .map(|other| handle_connection(r, &&ortho, &&other).into_iter().flatten())
-                        .flatten()
+                        .filter(|o| o.shape == ortho.shape && o.valid_diagonal_with(ortho))
+                        .filter_map(move |other| handle_connection(r, &ortho, &other).into_iter().flatten().next())
                 })
-                .collect::<Vec<_>>()
         })
         .collect()
 }
