@@ -12,7 +12,22 @@ pub fn single_process(registry: &mut Registry) {
 }
 
 pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
-    let detector = DiscontinuityDetector::new(source_answer, target_answer);
+    let (additional_squares, more_squares) = {
+        let detector = DiscontinuityDetector::new(source_answer, target_answer);
+
+        dbg!("detecting line discontinuities");
+        let lll_discontinuities = detector.l_l_l_discontinuities();
+
+        dbg!("detecting ortho discontinuities");
+        let olo_discontinuities = detector.o_l_o_discontinuities();
+
+        let additional_squares =
+            find_additional_squares_from_l_l_l(source_answer, lll_discontinuities);
+        let more_squares = find_additional_squares_from_o_l_o(source_answer, olo_discontinuities);
+
+        (additional_squares, more_squares)
+    };
+
     dbg!("unioning");
     source_answer.add_lines(target_answer.pairs.iter().cloned().collect::<Vec<_>>());
 
@@ -24,14 +39,6 @@ pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
             .collect::<Vec<_>>(),
     );
 
-    dbg!("detecting line discontinuities");
-    let lll_discontinuities = detector.l_l_l_discontinuities();
-
-    dbg!("detecting ortho discontinuities");
-    let olo_discontinuities = detector.o_l_o_discontinuities();
-
-    let additional_squares = find_additional_squares_from_l_l_l(source_answer, lll_discontinuities);
-    let more_squares = find_additional_squares_from_o_l_o(source_answer, olo_discontinuities);
     let all_squares: Vec<Ortho> = additional_squares.into_iter().chain(more_squares).collect();
     let added_squares = source_answer.add(all_squares);
     fold_up_by_origin_repeatedly(source_answer, added_squares)
@@ -52,14 +59,17 @@ fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
     new_squares
         .iter()
         .flat_map(|ortho| {
-            r.forward(ortho.origin())
-                .iter()
-                .flat_map(move |second| {
-                    r.squares_with_origin(second)
-                        .into_iter()
-                        .filter(|o| o.shape == ortho.shape && o.valid_diagonal_with(ortho))
-                        .filter_map(move |other| handle_connection(r, &ortho, &other).into_iter().flatten().next())
-                })
+            r.forward(ortho.origin()).iter().flat_map(move |second| {
+                r.squares_with_origin(second)
+                    .into_iter()
+                    .filter(|o| o.shape == ortho.shape && o.valid_diagonal_with(ortho))
+                    .filter_map(move |other| {
+                        handle_connection(r, &ortho, &other)
+                            .into_iter()
+                            .flatten()
+                            .next()
+                    })
+            })
         })
         .collect()
 }
@@ -80,7 +90,11 @@ fn find_additional_squares_from_o_l_o(
 ) -> Vec<Ortho> {
     check_back
         .iter()
-        .flat_map(|(l, _c, r)| handle_connection(combined_book, &l, &r).into_iter().flatten())
+        .flat_map(|(l, _c, r)| {
+            handle_connection(combined_book, &l, &r)
+                .into_iter()
+                .flatten()
+        })
         .collect_vec()
 }
 
@@ -91,7 +105,7 @@ fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Option<Vec<Or
     // right ortho.origin = b
     // assumption: passed in orthos have the same shape
     // assumption: passed in orthos have valid diagonals
-    
+
     let potential_corresponding_axes = find_potential_correspondences(registry, l, r);
     if let Some(potential_corresponding_axes) = potential_corresponding_axes {
         let ans = potential_corresponding_axes
@@ -170,7 +184,12 @@ fn combobulate_axes(potentials: Vec<(&String, &String)>) -> Vec<Vec<(String, Str
 
             unique_lefts.len() == num_axes && unique_rights.len() == num_axes
         })
-        .map(|combo| combo.into_iter().map(|(left, right)| (left.clone(), right.clone())).collect())
+        .map(|combo| {
+            combo
+                .into_iter()
+                .map(|(left, right)| (left.clone(), right.clone()))
+                .collect()
+        })
         .collect()
 }
 

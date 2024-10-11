@@ -8,14 +8,14 @@ use crate::line::Line;
 use crate::ortho::Ortho;
 use crate::registry::Registry;
 
-pub struct DiscontinuityDetector {
-    lines: HashMap<Line, Color>,
+pub struct DiscontinuityDetector<'a> {
+    lines: HashMap<&'a Line, Color>,
     ortho_by_color_origin_and_shape:
-        HashMap<Color, HashMap<String, HashMap<Bag<usize>, HashSet<Ortho>>>>,
-    line_by_color_and_start: HashMap<Color, HashMap<String, HashSet<Line>>>,
+        HashMap<Color, HashMap<String, HashMap<Bag<usize>, HashSet<&'a Ortho>>>>,
+    line_by_color_and_start: HashMap<Color, HashMap<String, HashSet<&'a Line>>>,
 }
-impl DiscontinuityDetector {
-    pub(crate) fn new(source_answer: &Registry, target_answer: &Registry) -> Self {
+impl<'a> DiscontinuityDetector<'a> {
+    pub(crate) fn new(source_answer: &'a Registry, target_answer: &'a Registry) -> Self {
         let source_only_lines = source_answer.subtract_lines(&target_answer);
         let target_only_lines = target_answer.subtract_lines(&source_answer);
         let source_only_orthos = source_answer.subtract_orthos(&target_answer);
@@ -25,16 +25,14 @@ impl DiscontinuityDetector {
             .cloned()
             .map(|i| {
                 (
-                    i.clone(),
+                    i,
                     Self::color_for_line(&source_only_lines, &target_only_lines, &i),
                 )
             })
             .collect();
-        let obcas: HashMap<Color, HashMap<String, HashMap<Bag<usize>, HashSet<Ortho>>>> =
+        let obcas: HashMap<Color, HashMap<String, HashMap<Bag<usize>, HashSet<&Ortho>>>> =
             source_only_orthos
                 .union(&target_only_orthos)
-                .cloned()
-                .cloned()
                 .map(|ortho| {
                     let color =
                         Self::color_for_ortho(&source_only_orthos, &target_only_orthos, &ortho);
@@ -57,10 +55,8 @@ impl DiscontinuityDetector {
                     acc
                 });
 
-        let lbcas: HashMap<Color, HashMap<String, HashSet<Line>>> = source_only_lines
+        let lbcas: HashMap<Color, HashMap<String, HashSet<&Line>>> = source_only_lines
             .union(&target_only_lines)
-            .cloned()
-            .cloned()
             .map(|line| {
                 let color = Self::color_for_line(&source_only_lines, &target_only_lines, &line);
                 let start = line.first.clone();
@@ -114,7 +110,7 @@ impl DiscontinuityDetector {
         }
     }
 
-    pub(crate) fn l_l_l_discontinuities<'a>(&'a self) -> Vec<(&'a Line, &'a Line, &'a Line)> {
+    pub(crate) fn l_l_l_discontinuities(&self) -> Vec<(&'a Line, &'a Line, &'a Line)> {
         self.centers()
             .iter()
             .flat_map(|(center_line, center_color)| match center_color {
@@ -125,7 +121,7 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    pub(crate) fn o_l_o_discontinuities<'a>(&'a self) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
+    pub(crate) fn o_l_o_discontinuities(&self) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
         let centers = self.centers();
 
         let shapes = self
@@ -135,8 +131,10 @@ impl DiscontinuityDetector {
             .flat_map(|origin_map| origin_map.values())
             .flat_map(|shape_map| shape_map.keys())
             .collect::<HashSet<_>>();
-        shapes.iter()
+        shapes
+            .iter()
             .flat_map(move |shape| {
+                let shape = *shape;
                 let centers = centers.clone();
                 centers
                     .iter()
@@ -151,13 +149,16 @@ impl DiscontinuityDetector {
             .collect()
     }
 
-    fn centers<'a>(&'a self) -> Vec<(&'a Line, &'a Color)> {
-        self.lines.iter().collect()
+    fn centers(&self) -> Vec<(&'a Line, &Color)> {
+        self.lines
+            .iter()
+            .map(|(line, color)| (*line, color))
+            .collect()
     }
 
-    fn match_by_discontinuity_black_o_l_o<'a>(
-        &'a self,
-        shape: &'a Bag<usize>,
+    fn match_by_discontinuity_black_o_l_o(
+        &self,
+        shape: &Bag<usize>,
         center_line: &'a Line,
     ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
         // | (Color::Red, Color::Black, Color::Black)
@@ -214,13 +215,15 @@ impl DiscontinuityDetector {
             .flat_map(|s| s.iter());
 
         iproduct!(lhs_red, rhs_black.chain(rhs_both).chain(rhs_red.clone()))
-            .map(|(l, r)| (l, center_line, r))
-            .chain(iproduct!(lhs_black.chain(lhs_both), rhs_red).map(|(l, r)| (l, center_line, r)))
+            .map(|(l, r)| (*l, center_line, *r))
+            .chain(
+                iproduct!(lhs_black.chain(lhs_both), rhs_red).map(|(l, r)| (*l, center_line, *r)),
+            )
             .collect_vec()
     }
 
-    fn match_by_discontinuity_red_o_l_o<'a>(
-        &'a self,
+    fn match_by_discontinuity_red_o_l_o(
+        &self,
         shape: &Bag<usize>,
         center_line: &'a Line,
     ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
@@ -281,13 +284,13 @@ impl DiscontinuityDetector {
             lhs_black,
             rhs_red.clone().chain(rhs_black).chain(rhs_both.clone())
         )
-        .map(|(l, r)| (l, center_line, r))
-        .chain(iproduct!(lhs_both.chain(lhs_red), rhs_red).map(|(l, r)| (l, center_line, r)))
+        .map(|(l, r)| (*l, center_line, *r))
+        .chain(iproduct!(lhs_both.chain(lhs_red), rhs_red).map(|(l, r)| (*l, center_line, *r)))
         .collect_vec()
     }
 
-    fn match_by_discontinuity_both_o_l_o<'a>(
-        &'a self,
+    fn match_by_discontinuity_both_o_l_o(
+        &self,
         shape: &Bag<usize>,
         center_line: &'a Line,
     ) -> Vec<(&'a Ortho, &'a Line, &'a Ortho)> {
@@ -331,12 +334,12 @@ impl DiscontinuityDetector {
         let seconds = iproduct!(lhs_red, rhs_black).map(|(l, r)| (l, center_line, r));
         firsts
             .chain(seconds)
-            .map(|(l, c, r)| (l, c, r))
+            .map(|(l, c, r)| (*l, c, *r))
             .collect_vec()
     }
 
-    fn match_by_discontinuity_black_l_l_l<'a>(
-        &'a self,
+    fn match_by_discontinuity_black_l_l_l(
+        &self,
         center_line: &'a Line,
     ) -> Vec<(&'a Line, &'a Line, &'a Line)> {
         // | (Color::Red, Color::Black, Color::Black)
@@ -388,13 +391,15 @@ impl DiscontinuityDetector {
             .flat_map(|s| s.iter());
 
         iproduct!(lhs_red, rhs_black.chain(rhs_both).chain(rhs_red.clone()))
-            .map(|(l, r)| (l, center_line, r))
-            .chain(iproduct!(lhs_black.chain(lhs_both), rhs_red).map(|(l, r)| (l, center_line, r)))
+            .map(|(l, r)| (*l, center_line, *r))
+            .chain(
+                iproduct!(lhs_black.chain(lhs_both), rhs_red).map(|(l, r)| (*l, center_line, *r)),
+            )
             .collect_vec()
     }
 
-    fn match_by_discontinuity_red_l_l_l<'a>(
-        &'a self,
+    fn match_by_discontinuity_red_l_l_l(
+        &self,
         center_line: &'a Line,
     ) -> Vec<(&'a Line, &'a Line, &'a Line)> {
         // | (Color::Black, Color::Red, Color::Black)
@@ -452,13 +457,13 @@ impl DiscontinuityDetector {
                 .chain(rhs_black.clone())
                 .chain(rhs_both.clone())
         )
-        .map(|(l, r)| (l, center_line, r))
-        .chain(iproduct!(lhs_red.chain(lhs_both), rhs_black).map(|(l, r)| (l, center_line, r)))
+        .map(|(l, r)| (*l, center_line, *r))
+        .chain(iproduct!(lhs_red.chain(lhs_both), rhs_black).map(|(l, r)| (*l, center_line, *r)))
         .collect_vec()
     }
 
-    fn match_by_discontinuity_both_l_l_l<'a>(
-        &'a self,
+    fn match_by_discontinuity_both_l_l_l(
+        &self,
         center_line: &'a Line,
     ) -> Vec<(&'a Line, &'a Line, &'a Line)> {
         // | (Color::Black, Color::Both, Color::Red)
@@ -493,8 +498,8 @@ impl DiscontinuityDetector {
             .flat_map(|s| s.iter());
 
         iproduct!(lhs_black, rhs_red)
-            .map(|(l, r)| (l, center_line, r))
-            .chain(iproduct!(lhs_red, rhs_black).map(|(l, r)| (l, center_line, r)))
+            .map(|(l, r)| (*l, center_line, *r))
+            .chain(iproduct!(lhs_red, rhs_black).map(|(l, r)| (*l, center_line, *r)))
             .collect_vec()
     }
 }
