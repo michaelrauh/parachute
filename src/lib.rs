@@ -75,7 +75,7 @@ pub async fn process(endpoint: String, location: String) {
                 let print_shape = shape.iter().join(",");
                 println!("{:<15}: {:>5}", print_shape, count.to_string());
             }
-        } else if let Some((mut source_answer, target_answer)) =
+        } else if let Some((mut source_answer, mut target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
@@ -112,7 +112,7 @@ pub async fn process(endpoint: String, location: String) {
                 source_counts.insert(shape, source_count);
             }
 
-            merge_process(&mut source_answer, &target_answer);
+            merge_process(&mut source_answer, &mut target_answer);
 
             bucket.save_answer(&source_answer).await;
             bucket.delete_answer(&source_answer).await;

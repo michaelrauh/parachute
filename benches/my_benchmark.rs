@@ -20,7 +20,7 @@ fn merge_benchmark(c: &mut Criterion) {
     single_process(&mut right_registry);
 
     c.bench_function("sift merge", |b| {
-        b.iter(|| merge_process(black_box(&mut left_registry), black_box(&right_registry)))
+        b.iter(|| merge_process(black_box(&mut left_registry), black_box(&mut right_registry)))
     });
 }
 

@@ -48,33 +48,28 @@ impl Registry {
         &self.name
     }
 
-    pub(crate) fn add(&mut self, additional_squares: Vec<Ortho>) -> Vec<Ortho> {
-        let mut added_squares = Vec::new();
-        for ortho in additional_squares {
-            if self.squares.insert(ortho.clone()) {
-                let ortho_ref = self.squares.get(&ortho).unwrap();
-                added_squares.push(ortho_ref.clone());
-                self.squares_by_origin
-                    .entry(ortho_ref.origin().to_string())
-                    .or_insert_with(Vec::new)
-                    .push(ortho_ref.clone());
-            }
+    pub(crate) fn add_one(&mut self, ortho: Ortho) -> Option<Ortho> {
+        if self.squares.insert(ortho.clone()) {
+            self.squares_by_origin
+                .entry(ortho.origin().to_string())
+                .or_insert_with(Vec::new)
+                .push(ortho.clone());
+            Some(ortho)
+        } else {
+            None
         }
-        added_squares
     }
 
-    pub(crate) fn add_lines(&mut self, lines: Vec<Line>) {
-        for line in lines {
-            self.pairs.insert(line.clone());
-            self.forward_pairs
-                .entry(line.first.clone())
-                .or_insert_with(HashSet::new)
-                .insert(line.second.clone());
-            self.backward_pairs
-                .entry(line.second.clone())
-                .or_insert_with(HashSet::new)
-                .insert(line.first.clone());
-        }
+    pub(crate) fn add_line(&mut self, line: Line) {
+        self.pairs.insert(line.clone());
+        self.forward_pairs
+            .entry(line.first.clone())
+            .or_insert_with(HashSet::new)
+            .insert(line.second.clone());
+        self.backward_pairs
+            .entry(line.second.clone())
+            .or_insert_with(HashSet::new)
+            .insert(line.first.clone());
     }
 
     pub(crate) fn from_book(book: &Book) -> Self {

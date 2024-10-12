@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::vec;
 
 use crate::line::Line;
@@ -6,12 +6,19 @@ use crate::{discontinuity_detector::DiscontinuityDetector, ortho::Ortho, registr
 use itertools::{iproduct, Itertools};
 
 pub fn single_process(registry: &mut Registry) {
-    let new_squares = ffbb(registry);
-    let added_squares = registry.add(new_squares);
-    fold_up_by_origin_repeatedly(registry, added_squares)
+    let mut new_squares = ffbb(registry);
+    let total = new_squares.len();
+
+    for (i, square) in new_squares.drain(..).enumerate() {
+        let percent_done = (i as f64 / total as f64) * 100.0;
+        dbg!(percent_done);
+        if let Some(added) = registry.add_one(square) { // revisit registry and ortho for duplication
+            fold_up_by_origin_repeatedly(registry, added)
+        }
+    }
 }
 
-pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
+pub fn merge_process(source_answer: &mut Registry, target_answer: &mut Registry) {
     let (additional_squares, more_squares) = {
         let detector = DiscontinuityDetector::new(source_answer, target_answer);
 
@@ -29,49 +36,46 @@ pub fn merge_process(source_answer: &mut Registry, target_answer: &Registry) {
     };
 
     dbg!("unioning");
-    source_answer.add_lines(target_answer.pairs.iter().cloned().collect::<Vec<_>>());
+    for line in target_answer.pairs.drain() { // consider drain, revisit clone, look for more vecs
+        source_answer.add_line(line);
+    }
 
-    source_answer.add(
-        target_answer
-            .squares
-            .clone()
-            .into_iter()
-            .collect::<Vec<_>>(),
-    );
+    for square in target_answer.squares.drain() {
+        source_answer.add_one(square);
+    }
 
-    let all_squares: Vec<Ortho> = additional_squares.into_iter().chain(more_squares).collect();
-    let added_squares = source_answer.add(all_squares);
-    fold_up_by_origin_repeatedly(source_answer, added_squares)
-}
-
-fn fold_up_by_origin_repeatedly(r: &mut Registry, new_squares: Vec<Ortho>) {
-    let mut current_squares = new_squares;
-
-    while !current_squares.is_empty() {
-        let folded_squares = fold_up_by_origin(r, current_squares);
-        current_squares = r.add(folded_squares);
+    let total = additional_squares.len() + more_squares.len();
+    for (i, square) in additional_squares.into_iter().chain(more_squares).enumerate() {
+        let percent_done = (i as f64 / total as f64) * 100.0;
+        dbg!(percent_done);
+        if let Some(added) = source_answer.add_one(square.clone()) {
+            fold_up_by_origin_repeatedly(source_answer, added);
+        }
     }
 }
 
-fn fold_up_by_origin(r: &Registry, new_squares: Vec<Ortho>) -> Vec<Ortho> {
-    dbg!(new_squares.len());
-    dbg!(&new_squares.first().unwrap().shape);
-    new_squares
-        .iter()
-        .flat_map(|ortho| {
-            r.forward(ortho.origin()).iter().flat_map(move |second| {
-                r.squares_with_origin(second)
-                    .into_iter()
-                    .filter(|o| o.shape == ortho.shape && o.valid_diagonal_with(ortho))
-                    .filter_map(move |other| {
-                        handle_connection(r, &ortho, &other)
-                            .into_iter()
-                            .flatten()
-                            .next()
-                    })
-            })
-        })
-        .collect()
+fn fold_up_by_origin_repeatedly(r: &mut Registry, new_square: Ortho) {
+    let mut queue: VecDeque<Ortho> = VecDeque::new();
+    queue.push_back(new_square);
+    while let Some(ortho) = queue.pop_front() {
+        dbg!(&queue.len());
+        let mut folded_orthos: Vec<Ortho> = fold_up_by_origin(r, &ortho).collect();
+
+        for folded_ortho in folded_orthos.drain(..) {
+            if let Some(added) = r.add_one(folded_ortho) { 
+                queue.push_back(added);
+            }
+        }
+    }
+}
+
+fn fold_up_by_origin<'a>(r: &'a Registry, ortho: &'a Ortho) -> impl Iterator<Item = Ortho> + 'a {
+    r.forward(ortho.origin()).iter().flat_map(move |second| {
+        r.squares_with_origin(second)
+            .into_iter()
+            .filter(move |o| o.shape == ortho.shape && o.valid_diagonal_with(ortho))
+            .filter_map(move |other| handle_connection(r, ortho, other))
+    })
 }
 
 fn find_additional_squares_from_l_l_l(
@@ -79,9 +83,9 @@ fn find_additional_squares_from_l_l_l(
     check_back: Vec<(&Line, &Line, &Line)>,
 ) -> Vec<Ortho> {
     check_back
-        .iter()
-        .flat_map(|(l, c, r)| handle_lines(combined_book, l, c, r))
-        .collect_vec()
+        .into_iter()
+        .filter_map(move |(l, c, r)| handle_lines(combined_book, l, c, r))
+        .collect()
 }
 
 fn find_additional_squares_from_o_l_o(
@@ -89,36 +93,22 @@ fn find_additional_squares_from_o_l_o(
     check_back: Vec<(&Ortho, &Line, &Ortho)>,
 ) -> Vec<Ortho> {
     check_back
-        .iter()
-        .flat_map(|(l, _c, r)| {
-            handle_connection(combined_book, &l, &r)
-                .into_iter()
-                .flatten()
-        })
-        .collect_vec()
+        .into_iter()
+        .filter_map(move |(l, _c, r)| handle_connection(combined_book, l, r))
+        .collect()
 }
 
-fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Option<Vec<Ortho>> {
-    // todo make sure only base orthos are passed in, or check here
-    // left: ortho with origin (for now) connected to the other (origin = a)
-    // center: a-b
-    // right ortho.origin = b
-    // assumption: passed in orthos have the same shape
-    // assumption: passed in orthos have valid diagonals
-
-    let potential_corresponding_axes = find_potential_correspondences(registry, l, r);
-    if let Some(potential_corresponding_axes) = potential_corresponding_axes {
-        let ans = potential_corresponding_axes
-            .into_iter()
-            .flat_map(|correspondence| {
+fn handle_connection(registry: &Registry, l: &Ortho, r: &Ortho) -> Option<Ortho> {
+    if let Some(potential_corresponding_axes) = find_potential_correspondences(registry, l, r) {
+        for correspondence in potential_corresponding_axes {
+            if let Some(new_ortho) =
                 attempt_combine_up_by_corresponding_configuration(registry, l, r, correspondence)
-            })
-            .collect_vec();
-
-        Some(ans)
-    } else {
-        None
+            {
+                return Some(new_ortho);
+            }
+        }
     }
+    None
 }
 
 fn attempt_combine_up_by_corresponding_configuration(
@@ -315,7 +305,7 @@ mod tests {
 
         single_process(&mut left_registry);
         single_process(&mut right_registry);
-        merge_process(&mut left_registry, &right_registry);
+        merge_process(&mut left_registry, &mut right_registry);
 
         assert_eq!(
             left_registry.squares,
@@ -340,7 +330,7 @@ mod tests {
 
         single_process(&mut right_registry);
 
-        merge_process(&mut left_registry, &right_registry);
+        merge_process(&mut left_registry, &mut right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -376,7 +366,7 @@ mod tests {
 
         single_process(&mut right_registry);
 
-        merge_process(&mut left_registry, &right_registry);
+        merge_process(&mut left_registry, &mut right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
