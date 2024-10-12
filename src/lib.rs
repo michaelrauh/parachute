@@ -75,7 +75,7 @@ pub async fn process(endpoint: String, location: String) {
                 let print_shape = shape.iter().join(",");
                 println!("{:<15}: {:>5}", print_shape, count.to_string());
             }
-        } else if let Some((mut source_answer, mut target_answer)) =
+        } else if let Some((mut source_answer, target_answer)) =
             bucket.checkout_largest_and_smallest_answer().await
         {
             dbg!(&source_answer.name, &target_answer.name);
@@ -88,7 +88,7 @@ pub async fn process(endpoint: String, location: String) {
             for shape in all_shapes.clone() {
                 let source_count = source_answer
                     .count_by_shape()
-                    .find(|(s, _c)| *s == &shape)
+                    .find(|(s, _c)| **s == shape)
                     .map(|(_s, c)| c)
                     .unwrap_or_default();
                 let target_count = target_answer
@@ -111,25 +111,31 @@ pub async fn process(endpoint: String, location: String) {
                     .unwrap_or_default();
                 source_counts.insert(shape, source_count);
             }
-
-            merge_process(&mut source_answer, &mut target_answer);
-
-            bucket.save_answer(&source_answer).await;
-            bucket.delete_answer(&source_answer).await;
-            bucket.delete_answer(&target_answer).await;
+            let target_name = target_answer.name.clone();
 
             let all_shapes: HashSet<Bag<usize>> = source_answer
-                .count_by_shape()
-                .map(|(s, _c)| s)
-                .chain(target_answer.count_by_shape().map(|(s, _c)| s))
-                .chain(source_answer.count_by_shape().map(|(s, _c)| s))
-                .cloned()
-                .collect();
+            .count_by_shape()
+            .map(|(s, _c)| s)
+            .chain(target_answer.count_by_shape().map(|(s, _c)| s))
+            .chain(source_answer.count_by_shape().map(|(s, _c)| s))
+            .cloned()
+            .collect();
+
+        let target_answer_count_by_shape: HashMap<_, _> = target_answer.count_by_shape().map(|(s, c)| (s.clone(), c)).collect();
+
+            merge_process(&mut source_answer, target_answer);
+            
+
+            bucket.save_answer(&source_answer).await;
+            bucket.delete_answer(&source_answer.name).await;
+            bucket.delete_answer(&target_name).await;
+
+            
             for shape in all_shapes {
-                let target_count = target_answer
-                    .count_by_shape()
+                let target_count = target_answer_count_by_shape.iter()
                     .find(|(s, _c)| *s == &shape)
                     .map(|(_s, c)| c)
+                    .cloned()
                     .unwrap_or_default();
                 let new_count = source_answer
                     .count_by_shape()

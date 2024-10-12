@@ -33,8 +33,8 @@ impl Bucket {
             .await
     }
 
-    pub async fn delete_answer(&self, registry: &Registry) {
-        self.delete_from_bucket_top_level(&("doubleprocessing/".to_owned() + &registry.name))
+    pub async fn delete_answer(&self, name: &String) {
+        self.delete_from_bucket_top_level(&("doubleprocessing/".to_owned() + name))
             .await
     }
 

@@ -18,9 +18,9 @@ pub fn single_process(registry: &mut Registry) {
     }
 }
 
-pub fn merge_process(source_answer: &mut Registry, target_answer: &mut Registry) {
+pub fn merge_process(source_answer: &mut Registry, mut target_answer: Registry) {
     let (additional_squares, more_squares) = {
-        let detector = DiscontinuityDetector::new(source_answer, target_answer);
+        let detector = DiscontinuityDetector::new(source_answer, &mut target_answer);
 
         dbg!("detecting line discontinuities");
         let lll_discontinuities = detector.l_l_l_discontinuities();
@@ -44,11 +44,13 @@ pub fn merge_process(source_answer: &mut Registry, target_answer: &mut Registry)
         source_answer.add_one(square.clone());
     }
 
+    drop(target_answer);
+
     let total = additional_squares.len() + more_squares.len();
     for (i, square) in additional_squares.into_iter().chain(more_squares).enumerate() {
         let percent_done = (i as f64 / total as f64) * 100.0;
         dbg!(percent_done);
-        if let Some(added) = source_answer.add_one(square.clone()) {
+        if let Some(added) = source_answer.add_one(square) {
             fold_up_by_origin_repeatedly(source_answer, added);
         }
     }
@@ -62,7 +64,7 @@ fn fold_up_by_origin_repeatedly(r: &mut Registry, new_square: Ortho) {
         let mut folded_orthos: Vec<Ortho> = fold_up_by_origin(r, &ortho).collect();
 
         for folded_ortho in folded_orthos.drain(..) {
-            if let Some(added) = r.add_one(folded_ortho) { 
+            if let Some(added) = r.add_one(folded_ortho) { // todo consider not cloning this out and letting it be a ref
                 queue.push_back(added);
             }
         }
@@ -307,7 +309,7 @@ mod tests {
 
         single_process(&mut left_registry);
         single_process(&mut right_registry);
-        merge_process(&mut left_registry, &mut right_registry);
+        merge_process(&mut left_registry, right_registry);
 
         assert_eq!(
             left_registry.squares().cloned().collect::<HashSet<Ortho>>(),
@@ -332,7 +334,7 @@ mod tests {
 
         single_process(&mut right_registry);
 
-        merge_process(&mut left_registry, &mut right_registry);
+        merge_process(&mut left_registry, right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
@@ -368,7 +370,7 @@ mod tests {
 
         single_process(&mut right_registry);
 
-        merge_process(&mut left_registry, &mut right_registry);
+        merge_process(&mut left_registry, right_registry);
         let expected_ortho = Ortho::new(
             "a".to_string(),
             "b".to_string(),
