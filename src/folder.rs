@@ -12,7 +12,7 @@ pub fn single_process(registry: &mut Registry) {
     for (i, square) in new_squares.drain(..).enumerate() {
         let percent_done = (i as f64 / total as f64) * 100.0;
         dbg!(percent_done);
-        if let Some(added) = registry.add_one(square) { // revisit registry and ortho for duplication
+        if let Some(added) = registry.add_one(square) {
             fold_up_by_origin_repeatedly(registry, added)
         }
     }
@@ -36,12 +36,12 @@ pub fn merge_process(source_answer: &mut Registry, target_answer: &mut Registry)
     };
 
     dbg!("unioning");
-    for line in target_answer.pairs.drain() { // consider drain, revisit clone, look for more vecs
+    for line in target_answer.pairs.drain() {
         source_answer.add_line(line);
     }
 
-    for square in target_answer.squares.drain() {
-        source_answer.add_one(square);
+    for square in target_answer.squares() {
+        source_answer.add_one(square.clone());
     }
 
     let total = additional_squares.len() + more_squares.len();
@@ -242,6 +242,8 @@ fn ffbb(book: &Registry) -> Vec<Ortho> {
 mod tests {
     use std::collections::HashSet;
 
+    use itertools::Itertools;
+
     use crate::{folder::merge_process, ortho::Ortho, registry::Registry};
 
     use super::single_process;
@@ -252,7 +254,7 @@ mod tests {
         single_process(&mut r);
 
         assert_eq!(
-            r.squares,
+            r.squares().cloned().collect::<HashSet<Ortho>>(),
             vec![Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
@@ -295,7 +297,7 @@ mod tests {
                 ("c".to_string(), "g".to_string()),
             ],
         );
-        assert!(r.squares.contains(&expected_ortho))
+        assert!(r.squares().contains(&expected_ortho))
     }
 
     #[test]
@@ -308,7 +310,7 @@ mod tests {
         merge_process(&mut left_registry, &mut right_registry);
 
         assert_eq!(
-            left_registry.squares,
+            left_registry.squares().cloned().collect::<HashSet<Ortho>>(),
             vec![Ortho::new(
                 "a".to_string(),
                 "b".to_string(),
@@ -350,7 +352,7 @@ mod tests {
             ],
         );
 
-        assert!(left_registry.squares.contains(&expected_ortho))
+        assert!(left_registry.squares().contains(&expected_ortho))
     }
 
     #[test]
@@ -386,6 +388,6 @@ mod tests {
             ],
         );
 
-        assert!(left_registry.squares.contains(&expected_ortho))
+        assert!(left_registry.squares().contains(&expected_ortho))
     }
 }

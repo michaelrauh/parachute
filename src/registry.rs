@@ -7,7 +7,6 @@ use crate::{book_helper::Book, line::Line, ortho::Ortho};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Registry {
-    pub squares: HashSet<Ortho>,
     pub pairs: HashSet<Line>,
     pub name: String,
     pub provenance: Vec<String>,
@@ -28,7 +27,7 @@ impl Registry {
     ) -> impl Iterator<Item = (&'a Bag<usize>, usize)> + 'a {
         let mut coll: HashMap<&'a Bag<usize>, usize> = HashMap::new();
 
-        for o in &self.squares {
+        for o in self.squares() {
             let count = coll.entry(&o.shape).or_insert(0);
             *count += 1;
         }
@@ -49,11 +48,10 @@ impl Registry {
     }
 
     pub(crate) fn add_one(&mut self, ortho: Ortho) -> Option<Ortho> {
-        if self.squares.insert(ortho.clone()) {
-            self.squares_by_origin
-                .entry(ortho.origin().to_string())
-                .or_insert_with(Vec::new)
-                .push(ortho.clone());
+        let origin = ortho.origin().to_string();
+        let entry = self.squares_by_origin.entry(origin.clone()).or_insert_with(Vec::new);
+        if !entry.contains(&ortho) {
+            entry.push(ortho.clone());
             Some(ortho)
         } else {
             None
@@ -75,7 +73,6 @@ impl Registry {
     pub(crate) fn from_book(book: &Book) -> Self {
         let pairs = book.make_pairs();
         Registry {
-            squares: HashSet::default(),
             pairs: pairs.clone(),
             name: book.calculate_name(),
             provenance: vec![book.calculate_name()],
@@ -102,7 +99,11 @@ impl Registry {
     }
 
     pub(crate) fn subtract_orthos<'a>(&'a self, target_answer: &'a Registry) -> HashSet<&'a Ortho> {
-        self.squares.difference(&target_answer.squares).collect()
+        self.squares().collect::<HashSet<_>>().difference(&target_answer.squares().collect::<HashSet<_>>()).cloned().collect()
+    }
+    
+    pub(crate) fn squares(&self) -> impl Iterator<Item = &Ortho> {
+        self.squares_by_origin.values().flat_map(|v| v.iter())
     }
 }
 
